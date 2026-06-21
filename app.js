@@ -254,8 +254,13 @@ function exitBraceletMode() {
 function finishBeadDrag() {
   if (windowDragMoveHandler) {
     window.removeEventListener('mousemove', windowDragMoveHandler);
+    window.removeEventListener('touchmove', windowDragMoveHandler);
     windowDragMoveHandler = null;
   }
+  // Remove any remaining once-listeners in case finishBeadDrag is called by
+  // a canvas mouseup/touchend relay before the window listener fires.
+  window.removeEventListener('mouseup', finishBeadDrag);
+  window.removeEventListener('touchend', finishBeadDrag);
   if (state.draggingBeadIndex >= 0) {
     const cx = state.canvasSize / 2;
     const cy = state.canvasSize / 2;
@@ -1127,18 +1132,31 @@ canvas.addEventListener('mousedown', e => {
 
   if (hitIndex >= 0) {
     state.draggingBeadIndex = hitIndex;
-    // Track mouse across the whole page during a bead drag so the bead can
-    // be moved anywhere within the left panel (and outside the circle).
+    // Track the pointer anywhere on the page during a bead drag so it can be
+    // moved outside the circle (into the trash zone). Works for both mouse and touch.
     windowDragMoveHandler = ev => {
+      let clientX, clientY;
+      if (ev.touches || ev.changedTouches) {
+        const t = ev.touches[0] || ev.changedTouches[0];
+        if (!t) return;
+        ev.preventDefault();
+        clientX = t.clientX;
+        clientY = t.clientY;
+      } else {
+        clientX = ev.clientX;
+        clientY = ev.clientY;
+      }
       const physRect = canvas.getBoundingClientRect();
-      state.mouseX = ev.clientX - physRect.left;
-      state.mouseY = ev.clientY - physRect.top;
+      state.mouseX = clientX - physRect.left;
+      state.mouseY = clientY - physRect.top;
       const ovRect = overlayCanvas.getBoundingClientRect();
-      state.overlayMouseX = ev.clientX - ovRect.left;
-      state.overlayMouseY = ev.clientY - ovRect.top;
+      state.overlayMouseX = clientX - ovRect.left;
+      state.overlayMouseY = clientY - ovRect.top;
     };
     window.addEventListener('mousemove', windowDragMoveHandler);
+    window.addEventListener('touchmove', windowDragMoveHandler, { passive: false });
     window.addEventListener('mouseup', finishBeadDrag, { once: true });
+    window.addEventListener('touchend', finishBeadDrag, { once: true });
   } else {
     state.isDraggingBracelet = true;
     state.dragStartAngle = Math.atan2(my - cy, mx - cx);
@@ -1193,7 +1211,7 @@ canvas.addEventListener('mousemove', e => {
     return;
   }
 
-  if (!state.isBraceletMode) {
+  if (!state.isBraceletMode && window.matchMedia('(pointer: fine)').matches) {
     const cursor = document.getElementById('cursor');
     cursor.style.display = 'block';
     cursor.style.left = state.mouseX + 'px';
@@ -1267,6 +1285,30 @@ document.getElementById('saveBtn').addEventListener('click', () => {
     prompt('Copy this link to save your design:', url);
   }
 });
+
+// ─── TOUCH RELAY ─────────────────────────────────────────────────────────────
+// Convert single-finger touch events to the mouse events the canvas handlers
+// already understand. bubbles:false prevents window-level mouse handlers from
+// double-firing (window touch listeners handle the outside-canvas case).
+(function wireTouchRelay() {
+  function relay(mouseType) {
+    return function(e) {
+      e.preventDefault();
+      const t = e.changedTouches[0] || e.touches[0];
+      if (!t) return;
+      canvas.dispatchEvent(new MouseEvent(mouseType, {
+        clientX: t.clientX,
+        clientY: t.clientY,
+        bubbles: false,
+        cancelable: true,
+      }));
+    };
+  }
+  canvas.addEventListener('touchstart',  relay('mousedown'), { passive: false });
+  canvas.addEventListener('touchmove',   relay('mousemove'), { passive: false });
+  canvas.addEventListener('touchend',    relay('mouseup'),   { passive: false });
+  canvas.addEventListener('touchcancel', relay('mouseup'),   { passive: false });
+})();
 
 window.addEventListener('resize', resizeCanvas);
 

@@ -520,3 +520,128 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
 
 /* ── MISC ── */
 .hr { border: none; border-top: 1px solid var(--border); }
+
+/* ─── RESPONSIVE ──────────────────────────────────────────────────────────── */
+
+/* Touch / coarse-pointer devices: suppress mouse-cursor ring */
+@media (pointer: coarse) {
+  .custom-cursor { display: none !important; }
+  #physicsCanvas { cursor: default; touch-action: none; }
+}
+
+/* ── Tablet (≤ 1024px) ── */
+@media (max-width: 1024px) {
+  .main {
+    grid-template-columns: 1fr 240px;
+  }
+
+  .right {
+    padding: 16px 14px;
+    gap: 12px;
+  }
+
+  .wrist-hint { display: none; }
+
+  nav button {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+
+  .price-display {
+    font-size: 30px;
+  }
+}
+
+/* ── Phone (≤ 639px) ── */
+@media (max-width: 639px) {
+  body {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+  }
+
+  header {
+    padding: 0 14px;
+    height: 48px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  /* Collapse header to just the brand mark */
+  .divider,
+  nav,
+  .wrist-hint {
+    display: none;
+  }
+
+  .main {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    height: auto;
+  }
+
+  .left {
+    overflow: visible;
+    height: auto;
+  }
+
+  /* Canvas area height drives canvas sizing on mobile */
+  .canvas-area {
+    flex: none;
+    height: 90vw;
+    max-height: 420px;
+    min-height: 240px;
+  }
+
+  .picker {
+    padding: 10px 14px 14px;
+  }
+
+  /* Sub-category tabs scroll horizontally if they overflow */
+  .picker-tabs {
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .picker-tabs::-webkit-scrollbar { display: none; }
+  .picker-tab { flex-shrink: 0; }
+
+  .bead-item {
+    min-width: 60px;
+    padding: 6px 4px;
+    gap: 4px;
+  }
+
+  /* Right panel stacks below instead of beside */
+  .right {
+    border-left: none;
+    border-top: 2px solid var(--border);
+    overflow-y: visible;
+    padding: 18px 16px 48px;
+    gap: 12px;
+  }
+
+  .price-display {
+    font-size: 28px;
+  }
+
+  .bead-list {
+    max-height: 160px;
+  }
+
+  .size-selector {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .cta-btn {
+    padding: 14px;
+    font-size: 15px;
+  }
+
+  /* Steps: slightly more compact */
+  .step { font-size: 11px; gap: 8px; }
+  .step-num { width: 20px; height: 20px; font-size: 10px; }
+}
