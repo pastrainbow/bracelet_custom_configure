@@ -98,6 +98,9 @@ const state = {
   overlayMouseY: 0,
   freeDraggingBody: null, // Matter.js body being manually dragged in free mode
   freeDraggingBeadDef: null,
+  mouseDownX: 0,          // canvas-space pointer position at last mousedown (for tap detection)
+  mouseDownY: 0,
+  selectedBeadIndex: -1,  // index into beadsOnCanvas of the bead whose size picker is open
 };
 
 // ─── PHYSICS ─────────────────────────────────────────────────────────────────
@@ -155,9 +158,8 @@ function resizeCanvas() {
 
 // ─── BEAD SPAWN & REMOVAL ────────────────────────────────────────────────────
 
-function beadRadius() {
-  return state.beadSize * 2.2;
-}
+function mmToRadius(mm) { return mm * 2.2; }
+function beadRadius()   { return mmToRadius(state.beadSize); }
 
 function spawnBead(beadDef) {
   if (state.isBraceletMode) {
@@ -181,7 +183,7 @@ function spawnBead(beadDef) {
   Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.3);
   Matter.World.add(world, body);
 
-  state.beadsOnCanvas.push({ body, beadDef });
+  state.beadsOnCanvas.push({ body, beadDef, size: state.beadSize });
   updateSidebar();
   advanceStep(1);
 }
@@ -201,7 +203,7 @@ function addBeadToBracelet(beadDef) {
   });
   Matter.World.add(world, body);
 
-  const entry = { body, beadDef };
+  const entry = { body, beadDef, size: state.beadSize };
   state.beadsOnCanvas.push(entry);
 
   // Snapshot each existing bead's current visual position — renderBracelet keeps
@@ -251,6 +253,34 @@ function removeBraceletBead(index) {
     recomputeTargetAngles();
   }
   updateSidebar();
+}
+
+function resizeBead(index, newSizeMm) {
+  const entry = state.beadsOnCanvas[index];
+  if (entry.size === newSizeMm) return;
+
+  const oldBody = entry.body;
+  const newRadius = mmToRadius(newSizeMm);
+  const pos = oldBody.position;
+  const isStatic = oldBody.isStatic;
+
+  const newBody = Matter.Bodies.circle(pos.x, pos.y, newRadius, {
+    restitution: 0.65, friction: 0.1, frictionAir: 0.008,
+    density: 0.002, label: 'bead', isStatic,
+  });
+  if (!isStatic) Matter.Body.setVelocity(newBody, oldBody.velocity);
+
+  Matter.World.remove(world, oldBody);
+  Matter.World.add(world, newBody);
+
+  entry.body = newBody;
+  entry.size = newSizeMm;
+
+  // Keep braceletBeads in sync if in bracelet mode
+  if (state.isBraceletMode) {
+    const bb = state.braceletBeads.find(b => b.body === oldBody);
+    if (bb) { bb.body = newBody; bb.size = newSizeMm; }
+  }
 }
 
 // ─── BRACELET ARRANGE ────────────────────────────────────────────────────────
@@ -315,7 +345,14 @@ function finishBeadDrag() {
   if (state.draggingBeadIndex >= 0) {
     const cx = state.canvasSize / 2;
     const cy = state.canvasSize / 2;
-    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
+    const wasTap = Math.hypot(state.mouseX - state.mouseDownX, state.mouseY - state.mouseDownY) < 8;
+
+    if (wasTap) {
+      // Tap on a bracelet bead: select it
+      const b = state.braceletBeads[state.draggingBeadIndex];
+      const idx = state.beadsOnCanvas.findIndex(e => e.body === b.body);
+      if (idx >= 0) { state.selectedBeadIndex = idx; updateSidebar(); }
+    } else if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
       removeBraceletBead(state.draggingBeadIndex);
     }
   }
@@ -338,9 +375,15 @@ function finishFreeDrag() {
   const body = state.freeDraggingBody;
   const cx = state.canvasSize / 2;
   const cy = state.canvasSize / 2;
+  const idx = state.beadsOnCanvas.findIndex(b => b.body === body);
+  const wasTap = Math.hypot(state.mouseX - state.mouseDownX, state.mouseY - state.mouseDownY) < 8;
 
-  if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
-    const idx = state.beadsOnCanvas.findIndex(b => b.body === body);
+  if (wasTap) {
+    // Tap on a free bead: restore physics and select it
+    Matter.Body.setStatic(body, false);
+    Matter.Body.setVelocity(body, { x: 0, y: 0 });
+    if (idx >= 0) { state.selectedBeadIndex = idx; updateSidebar(); }
+  } else if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
     if (idx >= 0) removeBead(idx);
   } else {
     // Release back into physics with a small nudge
@@ -368,6 +411,20 @@ function applyMouseForce() {
       Matter.Body.applyForce(body, body.position, { x: (dx / dist) * force, y: (dy / dist) * force });
     }
   });
+}
+
+// ─── SELECTION RING ──────────────────────────────────────────────────────────
+
+function drawSelectionRing(x, y, r, c = ctx) {
+  c.save();
+  c.beginPath();
+  c.arc(x, y, r + 4, 0, Math.PI * 2);
+  c.strokeStyle = 'rgba(255,255,255,0.85)';
+  c.lineWidth = 2.5;
+  c.shadowColor = 'rgba(100,140,255,0.55)';
+  c.shadowBlur = 10;
+  c.stroke();
+  c.restore();
 }
 
 // ─── RENDER ──────────────────────────────────────────────────────────────────
@@ -936,7 +993,6 @@ function renderLoop() {
   const { canvasSize, circleRadius, animationPhase } = state;
   const cx = canvasSize / 2;
   const cy = canvasSize / 2;
-  const r = beadRadius();
 
   ctx.clearRect(0, 0, canvasSize, canvasSize);
 
@@ -949,11 +1005,11 @@ function renderLoop() {
   drawPlate(cx, cy);
 
   if (animationPhase === 'arranging') {
-    renderArranging(cx, cy, r);
+    renderArranging(cx, cy);
   } else if (animationPhase === 'bracelet') {
-    renderBracelet(cx, cy, r);
+    renderBracelet(cx, cy);
   } else {
-    renderFreeBeads(cx, cy, r);
+    renderFreeBeads(cx, cy);
   }
 
   drawWatermark(cx, cy);
@@ -967,6 +1023,7 @@ function renderLoop() {
   if (animationPhase === 'bracelet' && state.draggingBeadIndex >= 0) {
     if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
       const b = state.braceletBeads[state.draggingBeadIndex];
+      const r = mmToRadius(b.size);
       drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, b.beadDef, overlayCtx);
       drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
     }
@@ -975,24 +1032,29 @@ function renderLoop() {
   // Free mode: manually dragged bead outside the circle
   if (!animationPhase && state.freeDraggingBody) {
     if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
+      const draggingEntry = state.beadsOnCanvas.find(e => e.body === state.freeDraggingBody);
+      const r = draggingEntry ? mmToRadius(draggingEntry.size) : beadRadius();
       drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx);
       drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
     }
   }
 }
 
-function renderArranging(cx, cy, r) {
+function renderArranging(cx, cy) {
   state.arrangeProgress = Math.min(1, state.arrangeProgress + 0.025);
   const t = easeInOut(state.arrangeProgress);
   const brRadius = state.circleRadius * 0.72;
+  const selBody = state.selectedBeadIndex >= 0 ? state.beadsOnCanvas[state.selectedBeadIndex]?.body : null;
 
   state.braceletBeads.forEach(b => {
+    const r = mmToRadius(b.size);
     const tx = cx + Math.cos(b.targetAngle) * brRadius;
     const ty = cy + Math.sin(b.targetAngle) * brRadius;
     const px = b.startX + (tx - b.startX) * t;
     const py = b.startY + (ty - b.startY) * t;
     Matter.Body.setPosition(b.body, { x: px, y: py });
     drawItem(px, py, r, b.beadDef);
+    if (b.body === selBody) drawSelectionRing(px, py, r);
   });
 
   if (state.arrangeProgress >= 1) {
@@ -1001,25 +1063,29 @@ function renderArranging(cx, cy, r) {
   }
 }
 
-function renderBracelet(cx, cy, r) {
+function renderBracelet(cx, cy) {
   const brRadius = state.circleRadius * 0.72;
   const { draggingBeadIndex, mouseX, mouseY } = state;
+  const selBody = state.selectedBeadIndex >= 0 ? state.beadsOnCanvas[state.selectedBeadIndex]?.body : null;
 
   drawBraceletThread(cx, cy, brRadius);
 
   // Draw non-dragged beads first
   state.braceletBeads.forEach((b, i) => {
     if (i === draggingBeadIndex) return;
+    const r = mmToRadius(b.size);
     const angle = b.targetAngle + state.braceletAngle;
     const x = cx + Math.cos(angle) * brRadius;
     const y = cy + Math.sin(angle) * brRadius;
     Matter.Body.setPosition(b.body, { x, y });
     drawItem(x, y, r, b.beadDef);
+    if (b.body === selBody) drawSelectionRing(x, y, r);
   });
 
   // Draw dragged bead on top (only when inside the circle; outside is handled by renderLoop)
   if (draggingBeadIndex >= 0) {
     const b = state.braceletBeads[draggingBeadIndex];
+    const r = mmToRadius(b.size);
     const isOutside = Math.hypot(mouseX - cx, mouseY - cy) > state.circleRadius;
 
     if (isOutside) {
@@ -1034,10 +1100,12 @@ function renderBracelet(cx, cy, r) {
   }
 }
 
-function renderFreeBeads(cx, cy, r) {
-  const maxDist = state.circleRadius - r - 4;
+function renderFreeBeads(cx, cy) {
+  state.beadsOnCanvas.forEach((entry, idx) => {
+    const { body, beadDef, size } = entry;
+    const r = mmToRadius(size);
+    const maxDist = state.circleRadius - r - 4;
 
-  state.beadsOnCanvas.forEach(({ body, beadDef }) => {
     // Bead being manually dragged — follow the mouse
     if (body === state.freeDraggingBody) {
       Matter.Body.setPosition(body, { x: state.mouseX, y: state.mouseY });
@@ -1063,6 +1131,7 @@ function renderFreeBeads(cx, cy, r) {
     }
 
     drawItem(body.position.x, body.position.y, r, beadDef);
+    if (idx === state.selectedBeadIndex) drawSelectionRing(body.position.x, body.position.y, r);
   });
 }
 
@@ -1072,7 +1141,7 @@ function updateSidebar() {
   const beads = state.beadsOnCanvas;
   const count = beads.length;
   const total = beads.reduce((sum, b) => sum + b.beadDef.price, 0);
-  const lengthCm = (count * (state.beadSize + 0.5) * 0.1).toFixed(1);
+  const lengthCm = (beads.reduce((sum, b) => sum + b.size + 0.5, 0) * 0.1).toFixed(1);
 
   document.getElementById('beadCountBadge').textContent = `${count} bead${count !== 1 ? 's' : ''}`;
   document.getElementById('priceDisplay').innerHTML = `<span>$</span>${total.toFixed(2)}`;
@@ -1091,42 +1160,62 @@ function renderBeadList(beads) {
     return;
   }
 
-  const groups = beads.reduce((acc, b, idx) => {
-    const key = b.beadDef.id;
-    if (!acc[key]) acc[key] = { beadDef: b.beadDef, count: 0, indices: [] };
-    acc[key].count++;
-    acc[key].indices.push(idx);
-    return acc;
-  }, {});
-
   list.innerHTML = '';
-  Object.values(groups).forEach(g => {
+  let selectedRow = null;
+  beads.forEach((b, idx) => {
+    const isSelected = idx === state.selectedBeadIndex;
     const row = document.createElement('div');
-    row.className = 'bead-list-item';
+    row.className = 'bead-list-item' + (isSelected ? ' selected' : '');
+
+    // ── Top row: dot · name · price · remove ──
+    const top = document.createElement('div');
+    top.className = 'bead-list-top';
 
     const dot = document.createElement('div');
     dot.className = 'bead-dot';
-    dot.style.background = g.beadDef.gradient
-      ? `radial-gradient(circle at 35% 35%, ${g.beadDef.gradient[0]}, ${g.beadDef.gradient[1]})`
-      : g.beadDef.color || '#888';
+    dot.style.background = b.beadDef.gradient
+      ? `radial-gradient(circle at 35% 35%, ${b.beadDef.gradient[0]}, ${b.beadDef.gradient[1]})`
+      : b.beadDef.color || '#888';
 
     const name = document.createElement('div');
     name.className = 'bead-list-name';
-    name.textContent = `${g.beadDef.name} × ${g.count}`;
+    name.textContent = `${b.beadDef.name} · ${b.size}mm`;
 
     const price = document.createElement('div');
     price.className = 'bead-list-price';
-    price.textContent = `$${(g.beadDef.price * g.count).toFixed(2)}`;
+    price.textContent = `$${b.beadDef.price.toFixed(2)}`;
 
     const rm = document.createElement('button');
     rm.className = 'bead-list-remove';
     rm.innerHTML = '×';
-    rm.title = 'Remove one';
-    rm.addEventListener('click', () => removeBead(g.indices[g.indices.length - 1]));
+    rm.title = 'Remove';
+    rm.addEventListener('click', () => { removeBead(idx); });
 
-    row.append(dot, name, price, rm);
+    top.append(dot, name, price, rm);
+    row.appendChild(top);
+
+    // ── Size pills — only for the selected bead ──
+    if (isSelected) {
+      const sizeBtns = document.createElement('div');
+      sizeBtns.className = 'bead-size-btns';
+      [6, 10, 12, 14].forEach(mm => {
+        const btn = document.createElement('button');
+        btn.className = 'bead-size-btn' + (b.size === mm ? ' active' : '');
+        btn.textContent = `${mm}mm`;
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          resizeBead(idx, mm);
+          updateSidebar();
+        });
+        sizeBtns.appendChild(btn);
+      });
+      row.appendChild(sizeBtns);
+      selectedRow = row;
+    }
+
     list.appendChild(row);
   });
+  if (selectedRow) selectedRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 // ─── PICKER UI ───────────────────────────────────────────────────────────────
@@ -1240,17 +1329,26 @@ canvas.addEventListener('mousedown', e => {
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
+  // Sync mouseX/Y so tap detection (distance = 0) works even with no mousemove
+  state.mouseX = mx;
+  state.mouseY = my;
+  state.mouseDownX = mx;
+  state.mouseDownY = my;
   const cx = state.canvasSize / 2;
   const cy = state.canvasSize / 2;
-  const r = beadRadius();
 
   if (!state.isBraceletMode) {
     // Free mode: drag a bead outside the circle to remove it
     let hitIdx = -1;
-    state.beadsOnCanvas.forEach(({ body }, i) => {
-      if (Math.hypot(mx - body.position.x, my - body.position.y) < r * 1.3) hitIdx = i;
+    state.beadsOnCanvas.forEach((entry, i) => {
+      const r = mmToRadius(entry.size);
+      if (Math.hypot(mx - entry.body.position.x, my - entry.body.position.y) < r * 1.3) hitIdx = i;
     });
-    if (hitIdx < 0) return;
+    if (hitIdx < 0) {
+      // Clicked background — deselect
+      if (state.selectedBeadIndex >= 0) { state.selectedBeadIndex = -1; updateSidebar(); }
+      return;
+    }
     const entry = state.beadsOnCanvas[hitIdx];
     state.freeDraggingBody = entry.body;
     state.freeDraggingBeadDef = entry.beadDef;
@@ -1266,6 +1364,7 @@ canvas.addEventListener('mousedown', e => {
   // Check if the click lands on a bracelet bead
   let hitIndex = -1;
   state.braceletBeads.forEach((b, i) => {
+    const r = mmToRadius(b.size);
     const angle = b.targetAngle + state.braceletAngle;
     const bx = cx + Math.cos(angle) * brRadius;
     const by = cy + Math.sin(angle) * brRadius;
@@ -1276,6 +1375,8 @@ canvas.addEventListener('mousedown', e => {
     state.draggingBeadIndex = hitIndex;
     setupWindowDrag(finishBeadDrag);
   } else {
+    // Clicked bracelet background — deselect
+    if (state.selectedBeadIndex >= 0) { state.selectedBeadIndex = -1; updateSidebar(); }
     state.isDraggingBracelet = true;
     state.dragStartAngle = Math.atan2(my - cy, mx - cx);
   }
@@ -1373,6 +1474,9 @@ document.querySelectorAll('.size-btn').forEach(btn => {
     document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     state.beadSize = parseInt(btn.dataset.size);
+    // Resize every existing bead to the new global size
+    const n = state.beadsOnCanvas.length;
+    for (let i = 0; i < n; i++) resizeBead(i, state.beadSize);
     updateSidebar();
   });
 });
