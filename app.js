@@ -160,7 +160,10 @@ function beadRadius() {
 }
 
 function spawnBead(beadDef) {
-  if (state.isBraceletMode) exitBraceletMode();
+  if (state.isBraceletMode) {
+    addBeadToBracelet(beadDef);
+    return;
+  }
 
   const cx = state.canvasSize / 2;
   const x = cx + (Math.random() - 0.5) * 60;
@@ -179,6 +182,52 @@ function spawnBead(beadDef) {
   Matter.World.add(world, body);
 
   state.beadsOnCanvas.push({ body, beadDef });
+  updateSidebar();
+  advanceStep(1);
+}
+
+function addBeadToBracelet(beadDef) {
+  const cx = state.canvasSize / 2;
+  const cy = state.canvasSize / 2;
+
+  // Create a static body at the circle centre; the arrange animation flies it outward
+  const body = Matter.Bodies.circle(cx, cy, beadRadius(), {
+    restitution: 0.65,
+    friction: 0.1,
+    frictionAir: 0.008,
+    density: 0.002,
+    label: 'bead',
+    isStatic: true,
+  });
+  Matter.World.add(world, body);
+
+  const entry = { body, beadDef };
+  state.beadsOnCanvas.push(entry);
+
+  // Snapshot each existing bead's current visual position — renderBracelet keeps
+  // body.position in sync with the ring (including any braceletAngle rotation).
+  state.braceletBeads.forEach(b => {
+    b.startX = b.body.position.x;
+    b.startY = b.body.position.y;
+  });
+
+  // New bead animates in from the centre
+  state.braceletBeads.push({ ...entry, startX: cx, startY: cy });
+
+  // Redistribute slots evenly across all beads including the new one
+  recomputeTargetAngles();
+
+  // Cancel any in-progress drag so the animation can play cleanly
+  state.draggingBeadIndex = -1;
+  state.isDraggingBracelet = false;
+
+  // Re-run the arrange animation from current positions to the new layout.
+  // braceletAngle resets to 0 at animation end (renderArranging handles this),
+  // so set it to 0 now so targetAngles and start positions are consistent.
+  state.braceletAngle = 0;
+  state.animationPhase = 'arranging';
+  state.arrangeProgress = 0;
+
   updateSidebar();
   advanceStep(1);
 }
