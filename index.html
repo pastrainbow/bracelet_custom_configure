@@ -40,6 +40,7 @@
   <div class="main">
 
     <div class="left">
+      <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
       <div class="canvas-area" id="canvasArea">
         <div class="canvas-wrap">
           <canvas id="physicsCanvas"></canvas>
@@ -50,12 +51,11 @@
       </div>
 
       <div class="picker">
-        <div class="picker-tabs">
-          <button class="picker-tab active" data-cat="crystal">Crystal</button>
-          <button class="picker-tab" data-cat="stone">Natural Stone</button>
-          <button class="picker-tab" data-cat="shell">Shell</button>
-          <button class="picker-tab" data-cat="accent">Accent</button>
+        <div class="super-tabs">
+          <button class="super-tab active" data-super="beads">Beads</button>
+          <button class="super-tab" data-super="accessories">Accessories</button>
         </div>
+        <div class="picker-tabs" id="pickerTabs"></div>
         <div class="bead-grid" id="beadGrid"></div>
       </div>
     </div>

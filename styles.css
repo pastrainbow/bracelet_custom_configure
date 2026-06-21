@@ -123,6 +123,16 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.overlay-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 20;
 }
 
 /* ── CANVAS AREA ── */
@@ -143,8 +153,7 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
 }
 
 #physicsCanvas {
-  border-radius: 50%;
-  box-shadow: var(--shadow), inset 0 0 60px rgba(0, 0, 0, 0.04);
+  /* No border-radius — circular clipping is done in JS so beads can draw outside the circle */
   cursor: none;
 }
 
@@ -152,6 +161,7 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
   position: absolute;
   border-radius: 50%;
   border: 2px solid var(--border);
+  box-shadow: var(--shadow);
   pointer-events: none;
 }
 
@@ -195,6 +205,30 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
   padding: 12px 20px;
   flex-shrink: 0;
 }
+
+.super-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.super-tab {
+  padding: 5px 18px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+
+.super-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.super-tab:hover:not(.active) { border-color: var(--accent2); color: var(--accent2); }
 
 .picker-tabs {
   display: flex;
@@ -271,6 +305,13 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
 }
 
 .bead-price { font-size: 10px; color: var(--muted); }
+
+.accessory-preview {
+  width: 46px;
+  height: 46px;
+  border-radius: 8px;
+  display: block;
+}
 
 /* ── RIGHT PANEL ── */
 .right {

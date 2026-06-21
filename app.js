@@ -36,6 +36,44 @@ const CATALOGUE = {
     { id: 'pyrite',        name: 'Pyrite',          price: 3,  gradient: ['#c8b850', '#a09030'] },
     { id: 'clear-quartz',  name: 'Clear Quartz',    price: 2,  gradient: ['#e8f4ff', '#cce0ff'], shimmer: true },
   ],
+
+  // ── Accessories supercategory ──────────────────────────────────────────────
+  charms: [
+    { id: 'heart-charm',     name: 'Heart',       price: 8,  color: '#e91e8c', shape: 'heart' },
+    { id: 'star-charm',      name: 'Star',        price: 6,  color: '#d4af37', shape: 'star' },
+    { id: 'moon-charm',      name: 'Crescent',    price: 7,  color: '#b0c8e8', shape: 'moon' },
+    { id: 'butterfly-charm', name: 'Butterfly',   price: 9,  color: '#9c27b0', shape: 'butterfly' },
+    { id: 'flower-charm',    name: 'Flower',      price: 7,  color: '#ff6b9d', shape: 'flower' },
+    { id: 'infinity-charm',  name: 'Infinity',    price: 8,  color: '#d4af37', shape: 'infinity' },
+  ],
+  spacers: [
+    { id: 'gold-disc',           name: 'Gold Disc',        price: 2, color: '#d4af37', shape: 'flat-disc' },
+    { id: 'silver-disc',         name: 'Silver Disc',      price: 2, color: '#c0c0c0', shape: 'flat-disc' },
+    { id: 'gold-rondelle',       name: 'Gold Rondelle',    price: 3, color: '#d4af37', shape: 'rondelle' },
+    { id: 'silver-rondelle',     name: 'Silver Rondelle',  price: 3, color: '#c0c0c0', shape: 'rondelle' },
+    { id: 'crystal-rondelle',    name: 'Crystal Rondelle', price: 4, color: '#d4f0ff', shape: 'rondelle' },
+  ],
+  pendants: [
+    { id: 'gold-coin',      name: 'Gold Coin',    price: 10, color: '#d4af37', shape: 'coin' },
+    { id: 'evil-eye',       name: 'Evil Eye',     price: 8,  color: '#1565c0', shape: 'evil-eye' },
+    { id: 'hexagon-silver', name: 'Hexagon',      price: 7,  color: '#9e9e9e', shape: 'hexagon' },
+    { id: 'cross-gold',     name: 'Gold Cross',   price: 7,  color: '#d4af37', shape: 'cross' },
+    { id: 'cross-silver',   name: 'Silver Cross', price: 7,  color: '#c0c0c0', shape: 'cross' },
+  ],
+};
+
+const SUPERCATS = {
+  beads: [
+    { cat: 'crystal', label: 'Crystal' },
+    { cat: 'stone',   label: 'Natural Stone' },
+    { cat: 'shell',   label: 'Shell' },
+    { cat: 'accent',  label: 'Accent' },
+  ],
+  accessories: [
+    { cat: 'charms',   label: 'Charms' },
+    { cat: 'spacers',  label: 'Spacers' },
+    { cat: 'pendants', label: 'Pendants' },
+  ],
 };
 
 // ─── STATE ───────────────────────────────────────────────────────────────────
@@ -56,11 +94,14 @@ const state = {
   isDraggingBracelet: false,
   dragStartAngle: 0,
   draggingBeadIndex: -1,  // index into braceletBeads while reordering
+  overlayMouseX: 0,       // mouse position relative to the overlay canvas
+  overlayMouseY: 0,
 };
 
 // ─── PHYSICS ─────────────────────────────────────────────────────────────────
 
 let engine, world, runner;
+let windowDragMoveHandler = null;
 
 function initPhysics() {
   engine = Matter.Engine.create({ gravity: { x: 0, y: 0.4 } });
@@ -103,6 +144,11 @@ function resizeCanvas() {
   const ring = document.getElementById('canvasRing');
   ring.style.width = state.canvasSize + 'px';
   ring.style.height = state.canvasSize + 'px';
+
+  // Match overlay to the full left panel so the bead can render anywhere inside it
+  const left = document.querySelector('.left');
+  overlayCanvas.width = left.offsetWidth;
+  overlayCanvas.height = left.offsetHeight;
 }
 
 // ─── BEAD SPAWN & REMOVAL ────────────────────────────────────────────────────
@@ -140,6 +186,19 @@ function removeBead(index) {
   Matter.World.remove(world, entry.body);
   state.beadsOnCanvas.splice(index, 1);
   if (state.isBraceletMode) exitBraceletMode();
+  updateSidebar();
+}
+
+function removeBraceletBead(index) {
+  const { body } = state.braceletBeads[index];
+  state.braceletBeads.splice(index, 1);
+  state.beadsOnCanvas = state.beadsOnCanvas.filter(b => b.body !== body);
+  Matter.World.remove(world, body);
+  if (state.braceletBeads.length === 0) {
+    exitBraceletMode();
+  } else {
+    recomputeTargetAngles();
+  }
   updateSidebar();
 }
 
@@ -190,6 +249,23 @@ function exitBraceletMode() {
   const btn = document.getElementById('arrangeBtn');
   btn.textContent = 'Arrange as Bracelet';
   btn.classList.remove('bracelet-mode');
+}
+
+function finishBeadDrag() {
+  if (windowDragMoveHandler) {
+    window.removeEventListener('mousemove', windowDragMoveHandler);
+    windowDragMoveHandler = null;
+  }
+  if (state.draggingBeadIndex >= 0) {
+    const cx = state.canvasSize / 2;
+    const cy = state.canvasSize / 2;
+    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
+      removeBraceletBead(state.draggingBeadIndex);
+    }
+  }
+  state.draggingBeadIndex = -1;
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  canvas.style.cursor = state.isBraceletMode ? 'grab' : 'none';
 }
 
 // ─── MOUSE REPULSION ─────────────────────────────────────────────────────────
@@ -260,14 +336,62 @@ function drawBraceletThread(cx, cy, radius) {
   ctx.stroke();
 }
 
-function drawBead(x, y, r, beadDef) {
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.25)';
-  ctx.shadowBlur = 8;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 3;
+function drawTrashOverlay(x, y, r, c = ctx) {
+  c.save();
 
-  const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
+  // Red tint over the bead
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(220, 38, 38, 0.5)';
+  c.fill();
+
+  // White badge circle
+  const badge = r * 0.52;
+  c.beginPath();
+  c.arc(x, y, badge, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.92)';
+  c.fill();
+
+  // Trash can drawn with canvas primitives (reliable cross-platform)
+  const s = badge * 0.7; // scale unit
+  c.fillStyle = '#dc2626';
+  c.strokeStyle = '#dc2626';
+  c.lineCap = 'round';
+
+  // Handle
+  c.fillRect(x - s * 0.22, y - s * 1.05, s * 0.44, s * 0.28);
+  // Lid
+  c.fillRect(x - s * 0.62, y - s * 0.78, s * 1.24, s * 0.22);
+  // Body
+  c.beginPath();
+  c.moveTo(x - s * 0.5, y - s * 0.56);
+  c.lineTo(x - s * 0.42, y + s * 0.72);
+  c.lineTo(x + s * 0.42, y + s * 0.72);
+  c.lineTo(x + s * 0.5, y - s * 0.56);
+  c.closePath();
+  c.fill();
+
+  // Vertical stripes inside body
+  c.strokeStyle = 'rgba(255,255,255,0.85)';
+  c.lineWidth = s * 0.14;
+  [-0.22, 0, 0.22].forEach(offset => {
+    c.beginPath();
+    c.moveTo(x + s * offset, y - s * 0.38);
+    c.lineTo(x + s * offset, y + s * 0.55);
+    c.stroke();
+  });
+
+  c.restore();
+}
+
+function drawBead(x, y, r, beadDef, c = ctx) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.25)';
+  c.shadowBlur = 8;
+  c.shadowOffsetX = 2;
+  c.shadowOffsetY = 3;
+
+  const g = c.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.05, x, y, r);
   if (beadDef.shimmer) {
     g.addColorStop(0, '#ffffff');
     g.addColorStop(0.25, beadDef.gradient[0]);
@@ -278,28 +402,28 @@ function drawBead(x, y, r, beadDef) {
     g.addColorStop(1, beadDef.gradient[1]);
   }
 
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = g;
-  ctx.fill();
-  ctx.restore();
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.fillStyle = g;
+  c.fill();
+  c.restore();
 
-  const spec = ctx.createRadialGradient(x - r * 0.32, y - r * 0.35, 0, x - r * 0.2, y - r * 0.2, r * 0.55);
+  const spec = c.createRadialGradient(x - r * 0.32, y - r * 0.35, 0, x - r * 0.2, y - r * 0.2, r * 0.55);
   spec.addColorStop(0, 'rgba(255,255,255,0.75)');
   spec.addColorStop(0.4, 'rgba(255,255,255,0.2)');
   spec.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = spec;
-  ctx.fill();
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.fillStyle = spec;
+  c.fill();
 
-  const rim = ctx.createRadialGradient(x, y, r * 0.6, x, y, r);
+  const rim = c.createRadialGradient(x, y, r * 0.6, x, y, r);
   rim.addColorStop(0, 'rgba(0,0,0,0)');
   rim.addColorStop(1, 'rgba(0,0,0,0.18)');
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, Math.PI * 2);
-  ctx.fillStyle = rim;
-  ctx.fill();
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.fillStyle = rim;
+  c.fill();
 }
 
 function lightenHex(hex, amount) {
@@ -308,6 +432,413 @@ function lightenHex(hex, amount) {
   const g = Math.min(255, ((n >> 8) & 0xff) + Math.round(255 * amount));
   const b = Math.min(255, (n & 0xff) + Math.round(255 * amount));
   return `rgb(${r},${g},${b})`;
+}
+
+function darkenHex(hex, amount) {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = Math.max(0, (n >> 16) - Math.round(255 * amount));
+  const g = Math.max(0, ((n >> 8) & 0xff) - Math.round(255 * amount));
+  const b = Math.max(0, (n & 0xff) - Math.round(255 * amount));
+  return `rgb(${r},${g},${b})`;
+}
+
+// ─── ACCESSORY SHAPE RENDERERS ────────────────────────────────────────────────
+
+function shapeHeart(c, x, y, r, color) {
+  c.save();
+  c.translate(x, y - r * 0.04);
+  const s = r * 0.72;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  c.moveTo(0, s * 0.5);
+  c.bezierCurveTo(-s * 0.05, s * 0.28, -s * 0.82, s * 0.08, -s * 0.92, -s * 0.25);
+  c.bezierCurveTo(-s * 1.1, -s * 0.72, -s * 0.38, -s * 1.02, 0, -s * 0.4);
+  c.bezierCurveTo(s * 0.38, -s * 1.02, s * 1.1, -s * 0.72, s * 0.92, -s * 0.25);
+  c.bezierCurveTo(s * 0.82, s * 0.08, s * 0.05, s * 0.28, 0, s * 0.5);
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.fillStyle = 'rgba(255,255,255,0.38)';
+  c.beginPath();
+  c.ellipse(-s * 0.3, -s * 0.44, s * 0.28, s * 0.16, -0.45, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function shapeStar(c, x, y, r, color) {
+  c.save();
+  const outer = r * 0.85;
+  const inner = r * 0.36;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? outer : inner;
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    i === 0 ? c.moveTo(x + rad * Math.cos(a), y + rad * Math.sin(a))
+            : c.lineTo(x + rad * Math.cos(a), y + rad * Math.sin(a));
+  }
+  c.closePath();
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.fillStyle = 'rgba(255,255,255,0.38)';
+  c.beginPath();
+  c.ellipse(x - r * 0.18, y - r * 0.3, r * 0.2, r * 0.12, -0.5, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function shapeMoon(c, x, y, r, color) {
+  c.save();
+  // Clip to bounding circle so destination-out stays local
+  c.beginPath();
+  c.arc(x, y, r * 0.88, 0, Math.PI * 2);
+  c.clip();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  c.arc(x, y, r * 0.82, 0, Math.PI * 2);
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.globalCompositeOperation = 'destination-out';
+  c.beginPath();
+  c.arc(x + r * 0.36, y - r * 0.06, r * 0.68, 0, Math.PI * 2);
+  c.fill();
+  c.globalCompositeOperation = 'source-over';
+  c.fillStyle = 'rgba(255,255,255,0.35)';
+  c.beginPath();
+  c.ellipse(x - r * 0.36, y - r * 0.3, r * 0.16, r * 0.1, -0.4, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function shapeButterfly(c, x, y, r, color) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  const w = r * 0.76;
+  // Upper wings
+  c.beginPath();
+  c.ellipse(x - w * 0.44, y - w * 0.24, w * 0.52, w * 0.4, -0.4, 0, Math.PI * 2);
+  c.fillStyle = color;
+  c.fill();
+  c.beginPath();
+  c.ellipse(x + w * 0.44, y - w * 0.24, w * 0.52, w * 0.4, 0.4, 0, Math.PI * 2);
+  c.fill();
+  // Lower wings
+  c.beginPath();
+  c.ellipse(x - w * 0.38, y + w * 0.28, w * 0.38, w * 0.3, 0.32, 0, Math.PI * 2);
+  c.fill();
+  c.beginPath();
+  c.ellipse(x + w * 0.38, y + w * 0.28, w * 0.38, w * 0.3, -0.32, 0, Math.PI * 2);
+  c.fill();
+  c.shadowColor = 'transparent';
+  // Wing sheen
+  c.fillStyle = 'rgba(255,255,255,0.24)';
+  c.beginPath();
+  c.ellipse(x - w * 0.42, y - w * 0.24, w * 0.28, w * 0.2, -0.4, 0, Math.PI * 2);
+  c.fill();
+  c.beginPath();
+  c.ellipse(x + w * 0.42, y - w * 0.24, w * 0.28, w * 0.2, 0.4, 0, Math.PI * 2);
+  c.fill();
+  // Body
+  c.beginPath();
+  c.ellipse(x, y, w * 0.1, w * 0.54, 0, 0, Math.PI * 2);
+  c.fillStyle = '#3a2a1a';
+  c.fill();
+  c.restore();
+}
+
+function shapeFlower(c, x, y, r, color) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  const pr = r * 0.38;
+  const pd = r * 0.35;
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    c.beginPath();
+    c.arc(x + Math.cos(a) * pd, y + Math.sin(a) * pd, pr, 0, Math.PI * 2);
+    c.fillStyle = color;
+    c.fill();
+  }
+  c.shadowColor = 'transparent';
+  // Yellow centre
+  c.beginPath();
+  c.arc(x, y, r * 0.28, 0, Math.PI * 2);
+  c.fillStyle = '#ffe066';
+  c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.5)';
+  c.beginPath();
+  c.arc(x - r * 0.07, y - r * 0.08, r * 0.09, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function shapeInfinity(c, x, y, r, color) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  const w = r * 0.78;
+  const h = r * 0.4;
+  const lw = r * 0.2;
+  c.lineWidth = lw;
+  c.strokeStyle = color;
+  c.lineCap = 'round';
+  c.lineJoin = 'round';
+  c.beginPath();
+  c.moveTo(x, y);
+  c.bezierCurveTo(x - w * 0.1, y - h, x - w, y - h, x - w, y);
+  c.bezierCurveTo(x - w, y + h, x - w * 0.1, y + h, x, y);
+  c.bezierCurveTo(x + w * 0.1, y - h, x + w, y - h, x + w, y);
+  c.bezierCurveTo(x + w, y + h, x + w * 0.1, y + h, x, y);
+  c.stroke();
+  c.shadowColor = 'transparent';
+  c.strokeStyle = 'rgba(255,255,255,0.4)';
+  c.lineWidth = lw * 0.38;
+  c.beginPath();
+  c.arc(x - w * 0.64, y - h * 0.4, h * 0.36, Math.PI * 0.8, Math.PI * 1.6);
+  c.stroke();
+  c.beginPath();
+  c.arc(x + w * 0.64, y - h * 0.4, h * 0.36, Math.PI * 0.8, Math.PI * 1.6);
+  c.stroke();
+  c.restore();
+}
+
+function shapeFlatDisc(c, x, y, r, color) {
+  c.save();
+  const w = r * 0.86;
+  const h = r * 0.28;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 5;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  const grad = c.createLinearGradient(x, y - h, x, y + h);
+  grad.addColorStop(0, lightenHex(color, 0.32));
+  grad.addColorStop(0.5, color);
+  grad.addColorStop(1, darkenHex(color, 0.22));
+  c.beginPath();
+  c.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+  c.fillStyle = grad;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.beginPath();
+  c.ellipse(x, y - h * 0.38, w * 0.68, h * 0.28, 0, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.42)';
+  c.fill();
+  c.restore();
+}
+
+function shapeRondelle(c, x, y, r, color) {
+  c.save();
+  const w = r * 0.86;
+  const h = r * 0.42;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 5;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  const grad = c.createLinearGradient(x, y - h, x, y + h);
+  grad.addColorStop(0, lightenHex(color, 0.38));
+  grad.addColorStop(0.42, color);
+  grad.addColorStop(1, darkenHex(color, 0.25));
+  c.beginPath();
+  c.ellipse(x, y, w, h, 0, 0, Math.PI * 2);
+  c.fillStyle = grad;
+  c.fill();
+  c.shadowColor = 'transparent';
+  // Vertical facet lines
+  c.strokeStyle = 'rgba(255,255,255,0.28)';
+  c.lineWidth = 0.9;
+  for (let i = 1; i < 10; i++) {
+    const fx = x - w + (i * 2 * w) / 10;
+    const lineH = Math.sqrt(Math.max(0, 1 - Math.pow((fx - x) / w, 2))) * h;
+    c.beginPath();
+    c.moveTo(fx, y - lineH);
+    c.lineTo(fx, y + lineH);
+    c.stroke();
+  }
+  c.beginPath();
+  c.ellipse(x, y - h * 0.38, w * 0.64, h * 0.22, 0, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.4)';
+  c.fill();
+  c.restore();
+}
+
+function shapeCoin(c, x, y, r, color) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  c.arc(x, y, r * 0.86, 0, Math.PI * 2);
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  // Rim
+  c.beginPath();
+  c.arc(x, y, r * 0.86, 0, Math.PI * 2);
+  c.strokeStyle = darkenHex(color, 0.18);
+  c.lineWidth = r * 0.1;
+  c.stroke();
+  // Inner ring
+  c.beginPath();
+  c.arc(x, y, r * 0.58, 0, Math.PI * 2);
+  c.strokeStyle = 'rgba(255,255,255,0.22)';
+  c.lineWidth = 1.2;
+  c.stroke();
+  // Star emboss
+  const os = r * 0.36;
+  const is = r * 0.16;
+  c.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const rad = i % 2 === 0 ? os : is;
+    const a = (i * Math.PI) / 5 - Math.PI / 2;
+    i === 0 ? c.moveTo(x + rad * Math.cos(a), y + rad * Math.sin(a))
+            : c.lineTo(x + rad * Math.cos(a), y + rad * Math.sin(a));
+  }
+  c.closePath();
+  c.fillStyle = 'rgba(255,255,255,0.22)';
+  c.fill();
+  // Highlight
+  c.beginPath();
+  c.ellipse(x - r * 0.22, y - r * 0.26, r * 0.28, r * 0.16, -0.5, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.36)';
+  c.fill();
+  c.restore();
+}
+
+function shapeEvilEye(c, x, y, r, color) {
+  c.save();
+  const s = r * 0.86;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  c.arc(x, y, s, 0, Math.PI * 2);
+  c.fillStyle = '#f0f8ff';
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.beginPath();
+  c.arc(x, y, s * 0.76, 0, Math.PI * 2);
+  c.fillStyle = color;
+  c.fill();
+  c.beginPath();
+  c.arc(x, y, s * 0.5, 0, Math.PI * 2);
+  c.fillStyle = '#e3f2fd';
+  c.fill();
+  c.beginPath();
+  c.arc(x, y, s * 0.3, 0, Math.PI * 2);
+  c.fillStyle = '#0d1b3e';
+  c.fill();
+  c.beginPath();
+  c.arc(x - s * 0.1, y - s * 0.12, s * 0.1, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.85)';
+  c.fill();
+  c.restore();
+}
+
+function shapeHexagon(c, x, y, r, color) {
+  c.save();
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (i * Math.PI) / 3 - Math.PI / 6;
+    i === 0 ? c.moveTo(x + r * 0.86 * Math.cos(a), y + r * 0.86 * Math.sin(a))
+            : c.lineTo(x + r * 0.86 * Math.cos(a), y + r * 0.86 * Math.sin(a));
+  }
+  c.closePath();
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  // Inner hex outline
+  c.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const a = (i * Math.PI) / 3 - Math.PI / 6;
+    i === 0 ? c.moveTo(x + r * 0.56 * Math.cos(a), y + r * 0.56 * Math.sin(a))
+            : c.lineTo(x + r * 0.56 * Math.cos(a), y + r * 0.56 * Math.sin(a));
+  }
+  c.closePath();
+  c.strokeStyle = 'rgba(255,255,255,0.28)';
+  c.lineWidth = 1.2;
+  c.stroke();
+  c.fillStyle = 'rgba(255,255,255,0.32)';
+  c.beginPath();
+  c.ellipse(x - r * 0.2, y - r * 0.24, r * 0.24, r * 0.14, -0.4, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function shapeCross(c, x, y, r, color) {
+  c.save();
+  const arm = r * 0.24;
+  const len = r * 0.8;
+  c.shadowColor = 'rgba(0,0,0,0.28)';
+  c.shadowBlur = 7;
+  c.shadowOffsetX = 1;
+  c.shadowOffsetY = 2;
+  c.beginPath();
+  c.moveTo(x - arm, y - len);
+  c.lineTo(x + arm, y - len);
+  c.lineTo(x + arm, y - arm);
+  c.lineTo(x + len, y - arm);
+  c.lineTo(x + len, y + arm);
+  c.lineTo(x + arm, y + arm);
+  c.lineTo(x + arm, y + len);
+  c.lineTo(x - arm, y + len);
+  c.lineTo(x - arm, y + arm);
+  c.lineTo(x - len, y + arm);
+  c.lineTo(x - len, y - arm);
+  c.lineTo(x - arm, y - arm);
+  c.closePath();
+  c.fillStyle = color;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.fillStyle = 'rgba(255,255,255,0.32)';
+  c.beginPath();
+  c.ellipse(x - arm * 0.3, y - len * 0.52, arm * 0.7, arm * 0.38, -0.3, 0, Math.PI * 2);
+  c.fill();
+  c.restore();
+}
+
+function drawAccessory(x, y, r, def, c = ctx) {
+  switch (def.shape) {
+    case 'heart':     shapeHeart(c, x, y, r, def.color);    break;
+    case 'star':      shapeStar(c, x, y, r, def.color);     break;
+    case 'moon':      shapeMoon(c, x, y, r, def.color);     break;
+    case 'butterfly': shapeButterfly(c, x, y, r, def.color);break;
+    case 'flower':    shapeFlower(c, x, y, r, def.color);   break;
+    case 'infinity':  shapeInfinity(c, x, y, r, def.color); break;
+    case 'flat-disc': shapeFlatDisc(c, x, y, r, def.color); break;
+    case 'rondelle':  shapeRondelle(c, x, y, r, def.color); break;
+    case 'coin':      shapeCoin(c, x, y, r, def.color);     break;
+    case 'evil-eye':  shapeEvilEye(c, x, y, r, def.color);  break;
+    case 'hexagon':   shapeHexagon(c, x, y, r, def.color);  break;
+    case 'cross':     shapeCross(c, x, y, r, def.color);    break;
+  }
+}
+
+function drawItem(x, y, r, def, c = ctx) {
+  def.shape ? drawAccessory(x, y, r, def, c) : drawBead(x, y, r, def, c);
 }
 
 function renderLoop() {
@@ -324,6 +855,13 @@ function renderLoop() {
   const r = beadRadius();
 
   ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+  // Clip all regular drawing to the circular plate region
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(cx, cy, circleRadius, 0, Math.PI * 2);
+  ctx.clip();
+
   drawPlate(cx, cy);
 
   if (animationPhase === 'arranging') {
@@ -335,6 +873,19 @@ function renderLoop() {
   }
 
   drawWatermark(cx, cy);
+  ctx.restore(); // Remove circular clip
+
+  // Clear the overlay every frame, then draw the outside-dragged bead onto it.
+  // The overlay canvas fills the full left panel so the bead is never clipped.
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+  if (animationPhase === 'bracelet' && state.draggingBeadIndex >= 0) {
+    const dist = Math.hypot(state.mouseX - cx, state.mouseY - cy);
+    if (dist > circleRadius) {
+      const b = state.braceletBeads[state.draggingBeadIndex];
+      drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, b.beadDef, overlayCtx);
+      drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+    }
+  }
 }
 
 function renderArranging(cx, cy, r) {
@@ -348,7 +899,7 @@ function renderArranging(cx, cy, r) {
     const px = b.startX + (tx - b.startX) * t;
     const py = b.startY + (ty - b.startY) * t;
     Matter.Body.setPosition(b.body, { x: px, y: py });
-    drawBead(px, py, r, b.beadDef);
+    drawItem(px, py, r, b.beadDef);
   });
 
   if (state.arrangeProgress >= 1) {
@@ -370,17 +921,23 @@ function renderBracelet(cx, cy, r) {
     const x = cx + Math.cos(angle) * brRadius;
     const y = cy + Math.sin(angle) * brRadius;
     Matter.Body.setPosition(b.body, { x, y });
-    drawBead(x, y, r, b.beadDef);
+    drawItem(x, y, r, b.beadDef);
   });
 
-  // Draw dragged bead on top, snapped to bracelet circle at mouse angle
+  // Draw dragged bead on top (only when inside the circle; outside is handled by renderLoop)
   if (draggingBeadIndex >= 0) {
     const b = state.braceletBeads[draggingBeadIndex];
-    const mouseAngle = Math.atan2(mouseY - cy, mouseX - cx);
-    const x = cx + Math.cos(mouseAngle) * brRadius;
-    const y = cy + Math.sin(mouseAngle) * brRadius;
-    Matter.Body.setPosition(b.body, { x, y });
-    drawBead(x, y, r * 1.12, b.beadDef);  // slightly enlarged to indicate it's held
+    const isOutside = Math.hypot(mouseX - cx, mouseY - cy) > state.circleRadius;
+
+    if (isOutside) {
+      Matter.Body.setPosition(b.body, { x: mouseX, y: mouseY });
+    } else {
+      const mouseAngle = Math.atan2(mouseY - cy, mouseX - cx);
+      const x = cx + Math.cos(mouseAngle) * brRadius;
+      const y = cy + Math.sin(mouseAngle) * brRadius;
+      Matter.Body.setPosition(b.body, { x, y });
+      drawItem(x, y, r * 1.12, b.beadDef);
+    }
   }
 }
 
@@ -402,7 +959,7 @@ function renderFreeBeads(cx, cy, r) {
       Matter.Body.setVelocity(body, { x: vel.x - 1.8 * dot * nx, y: vel.y - 1.8 * dot * ny });
     }
 
-    drawBead(body.position.x, body.position.y, r, beadDef);
+    drawItem(body.position.x, body.position.y, r, beadDef);
   });
 }
 
@@ -446,7 +1003,9 @@ function renderBeadList(beads) {
 
     const dot = document.createElement('div');
     dot.className = 'bead-dot';
-    dot.style.background = `radial-gradient(circle at 35% 35%, ${g.beadDef.gradient[0]}, ${g.beadDef.gradient[1]})`;
+    dot.style.background = g.beadDef.gradient
+      ? `radial-gradient(circle at 35% 35%, ${g.beadDef.gradient[0]}, ${g.beadDef.gradient[1]})`
+      : g.beadDef.color || '#888';
 
     const name = document.createElement('div');
     name.className = 'bead-list-name';
@@ -473,28 +1032,58 @@ function buildBeadGrid(cat) {
   const grid = document.getElementById('beadGrid');
   grid.innerHTML = '';
 
-  (CATALOGUE[cat] || []).forEach(bead => {
+  (CATALOGUE[cat] || []).forEach(def => {
     const item = document.createElement('div');
     item.className = 'bead-item';
 
-    const preview = document.createElement('div');
-    preview.className = 'bead-preview';
-    preview.style.background = bead.shimmer
-      ? `radial-gradient(circle at 35% 35%, #fff 0%, ${bead.gradient[0]} 30%, ${bead.gradient[1]} 100%)`
-      : `radial-gradient(circle at 35% 35%, ${bead.gradient[0]}, ${bead.gradient[1]})`;
+    if (def.shape) {
+      // Accessory — draw shape on a mini canvas
+      const pc = document.createElement('canvas');
+      pc.width = 46;
+      pc.height = 46;
+      pc.className = 'accessory-preview';
+      drawAccessory(23, 23, 20, def, pc.getContext('2d'));
+      item.appendChild(pc);
+    } else {
+      // Bead — CSS radial gradient sphere
+      const preview = document.createElement('div');
+      preview.className = 'bead-preview';
+      preview.style.background = def.shimmer
+        ? `radial-gradient(circle at 35% 35%, #fff 0%, ${def.gradient[0]} 30%, ${def.gradient[1]} 100%)`
+        : `radial-gradient(circle at 35% 35%, ${def.gradient[0]}, ${def.gradient[1]})`;
+      item.appendChild(preview);
+    }
 
     const name = document.createElement('div');
     name.className = 'bead-name';
-    name.textContent = bead.name;
+    name.textContent = def.name;
 
     const price = document.createElement('div');
     price.className = 'bead-price';
-    price.textContent = `$${bead.price}`;
+    price.textContent = `$${def.price}`;
 
-    item.append(preview, name, price);
-    item.addEventListener('click', () => spawnBead(bead));
+    item.append(name, price);
+    item.addEventListener('click', () => spawnBead(def));
     grid.appendChild(item);
   });
+}
+
+function buildPickerTabs(supercat) {
+  const container = document.getElementById('pickerTabs');
+  container.innerHTML = '';
+  (SUPERCATS[supercat] || []).forEach((tab, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'picker-tab' + (i === 0 ? ' active' : '');
+    btn.dataset.cat = tab.cat;
+    btn.textContent = tab.label;
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+      btn.classList.add('active');
+      buildBeadGrid(tab.cat);
+    });
+    container.appendChild(btn);
+  });
+  if (SUPERCATS[supercat]?.length) buildBeadGrid(SUPERCATS[supercat][0].cat);
 }
 
 // ─── STEP PROGRESS ───────────────────────────────────────────────────────────
@@ -514,6 +1103,8 @@ function advanceStep(n) {
 
 const canvas = document.getElementById('physicsCanvas');
 const ctx = canvas.getContext('2d');
+const overlayCanvas = document.getElementById('overlayCanvas');
+const overlayCtx = overlayCanvas.getContext('2d');
 
 canvas.addEventListener('mousedown', e => {
   if (!state.isBraceletMode) return;
@@ -536,6 +1127,18 @@ canvas.addEventListener('mousedown', e => {
 
   if (hitIndex >= 0) {
     state.draggingBeadIndex = hitIndex;
+    // Track mouse across the whole page during a bead drag so the bead can
+    // be moved anywhere within the left panel (and outside the circle).
+    windowDragMoveHandler = ev => {
+      const physRect = canvas.getBoundingClientRect();
+      state.mouseX = ev.clientX - physRect.left;
+      state.mouseY = ev.clientY - physRect.top;
+      const ovRect = overlayCanvas.getBoundingClientRect();
+      state.overlayMouseX = ev.clientX - ovRect.left;
+      state.overlayMouseY = ev.clientY - ovRect.top;
+    };
+    window.addEventListener('mousemove', windowDragMoveHandler);
+    window.addEventListener('mouseup', finishBeadDrag, { once: true });
   } else {
     state.isDraggingBracelet = true;
     state.dragStartAngle = Math.atan2(my - cy, mx - cx);
@@ -548,11 +1151,17 @@ canvas.addEventListener('mousemove', e => {
   state.mouseX = e.clientX - rect.left;
   state.mouseY = e.clientY - rect.top;
   state.mouseInCanvas = true;
+  const ovRect = overlayCanvas.getBoundingClientRect();
+  state.overlayMouseX = e.clientX - ovRect.left;
+  state.overlayMouseY = e.clientY - ovRect.top;
 
   const cx = state.canvasSize / 2;
   const cy = state.canvasSize / 2;
 
   if (state.draggingBeadIndex >= 0) {
+    // When outside the circle the bead is in "delete zone" — skip slot swapping.
+    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) return;
+
     const n = state.braceletBeads.length;
     const slotSize = (Math.PI * 2) / n;
     const mouseAngle = Math.atan2(state.mouseY - cy, state.mouseX - cx);
@@ -594,16 +1203,17 @@ canvas.addEventListener('mousemove', e => {
 
 canvas.addEventListener('mouseup', () => {
   state.isDraggingBracelet = false;
-  state.draggingBeadIndex = -1;
-  canvas.style.cursor = state.isBraceletMode ? 'grab' : 'none';
+  finishBeadDrag();
 });
 
 canvas.addEventListener('mouseleave', () => {
   state.mouseInCanvas = false;
-  state.isDraggingBracelet = false;
-  state.draggingBeadIndex = -1;
   document.getElementById('cursor').style.display = 'none';
-  canvas.style.cursor = state.isBraceletMode ? 'grab' : 'none';
+  // Keep bead drag alive so release outside the canvas still triggers removal.
+  if (state.draggingBeadIndex < 0) {
+    state.isDraggingBracelet = false;
+    canvas.style.cursor = state.isBraceletMode ? 'grab' : 'none';
+  }
 });
 
 document.getElementById('arrangeBtn').addEventListener('click', () => {
@@ -614,11 +1224,11 @@ document.getElementById('arrangeBtn').addEventListener('click', () => {
   }
 });
 
-document.querySelectorAll('.picker-tab').forEach(tab => {
+document.querySelectorAll('.super-tab').forEach(tab => {
   tab.addEventListener('click', () => {
-    document.querySelectorAll('.picker-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.super-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
-    buildBeadGrid(tab.dataset.cat);
+    buildPickerTabs(tab.dataset.super);
   });
 });
 
@@ -664,5 +1274,5 @@ window.addEventListener('resize', resizeCanvas);
 
 resizeCanvas();
 initPhysics();
-buildBeadGrid('crystal');
+buildPickerTabs('beads');
 renderLoop();
