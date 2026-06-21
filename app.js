@@ -96,6 +96,8 @@ const state = {
   draggingBeadIndex: -1,  // index into braceletBeads while reordering
   overlayMouseX: 0,       // mouse position relative to the overlay canvas
   overlayMouseY: 0,
+  freeDraggingBody: null, // Matter.js body being manually dragged in free mode
+  freeDraggingBeadDef: null,
 };
 
 // ─── PHYSICS ─────────────────────────────────────────────────────────────────
@@ -271,6 +273,34 @@ function finishBeadDrag() {
   state.draggingBeadIndex = -1;
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
   canvas.style.cursor = state.isBraceletMode ? 'grab' : 'none';
+}
+
+function finishFreeDrag() {
+  if (windowDragMoveHandler) {
+    window.removeEventListener('mousemove', windowDragMoveHandler);
+    window.removeEventListener('touchmove', windowDragMoveHandler);
+    windowDragMoveHandler = null;
+  }
+  window.removeEventListener('mouseup', finishFreeDrag);
+  window.removeEventListener('touchend', finishFreeDrag);
+  overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  if (!state.freeDraggingBody) return;
+  const body = state.freeDraggingBody;
+  const cx = state.canvasSize / 2;
+  const cy = state.canvasSize / 2;
+
+  if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
+    const idx = state.beadsOnCanvas.findIndex(b => b.body === body);
+    if (idx >= 0) removeBead(idx);
+  } else {
+    // Release back into physics with a small nudge
+    Matter.Body.setStatic(body, false);
+    Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 3, y: (Math.random() - 0.5) * 3 });
+  }
+
+  state.freeDraggingBody = null;
+  state.freeDraggingBeadDef = null;
 }
 
 // ─── MOUSE REPULSION ─────────────────────────────────────────────────────────
@@ -883,11 +913,20 @@ function renderLoop() {
   // Clear the overlay every frame, then draw the outside-dragged bead onto it.
   // The overlay canvas fills the full left panel so the bead is never clipped.
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+  // Bracelet mode: dragged bead outside the circle
   if (animationPhase === 'bracelet' && state.draggingBeadIndex >= 0) {
-    const dist = Math.hypot(state.mouseX - cx, state.mouseY - cy);
-    if (dist > circleRadius) {
+    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
       const b = state.braceletBeads[state.draggingBeadIndex];
       drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, b.beadDef, overlayCtx);
+      drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+    }
+  }
+
+  // Free mode: manually dragged bead outside the circle
+  if (!animationPhase && state.freeDraggingBody) {
+    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
+      drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx);
       drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
     }
   }
@@ -950,6 +989,16 @@ function renderFreeBeads(cx, cy, r) {
   const maxDist = state.circleRadius - r - 4;
 
   state.beadsOnCanvas.forEach(({ body, beadDef }) => {
+    // Bead being manually dragged — follow the mouse
+    if (body === state.freeDraggingBody) {
+      Matter.Body.setPosition(body, { x: state.mouseX, y: state.mouseY });
+      // Draw inside the circle at a slightly enlarged scale; outside is on the overlay
+      if (Math.hypot(state.mouseX - cx, state.mouseY - cy) <= state.circleRadius) {
+        drawItem(state.mouseX, state.mouseY, r * 1.12, beadDef);
+      }
+      return;
+    }
+
     const { x, y } = body.position;
     const dx = x - cx;
     const dy = y - cy;
@@ -1111,15 +1160,59 @@ const ctx = canvas.getContext('2d');
 const overlayCanvas = document.getElementById('overlayCanvas');
 const overlayCtx = overlayCanvas.getContext('2d');
 
+// Shared setup: track the pointer across the whole page during any bead drag.
+function setupWindowDrag(finishCallback) {
+  windowDragMoveHandler = ev => {
+    let clientX, clientY;
+    if (ev.touches || ev.changedTouches) {
+      const t = ev.touches[0] || ev.changedTouches[0];
+      if (!t) return;
+      ev.preventDefault();
+      clientX = t.clientX;
+      clientY = t.clientY;
+    } else {
+      clientX = ev.clientX;
+      clientY = ev.clientY;
+    }
+    const physRect = canvas.getBoundingClientRect();
+    state.mouseX = clientX - physRect.left;
+    state.mouseY = clientY - physRect.top;
+    const ovRect = overlayCanvas.getBoundingClientRect();
+    state.overlayMouseX = clientX - ovRect.left;
+    state.overlayMouseY = clientY - ovRect.top;
+  };
+  window.addEventListener('mousemove', windowDragMoveHandler);
+  window.addEventListener('touchmove', windowDragMoveHandler, { passive: false });
+  window.addEventListener('mouseup', finishCallback, { once: true });
+  window.addEventListener('touchend', finishCallback, { once: true });
+}
+
 canvas.addEventListener('mousedown', e => {
-  if (!state.isBraceletMode) return;
   const rect = canvas.getBoundingClientRect();
   const mx = e.clientX - rect.left;
   const my = e.clientY - rect.top;
   const cx = state.canvasSize / 2;
   const cy = state.canvasSize / 2;
-  const brRadius = state.circleRadius * 0.72;
   const r = beadRadius();
+
+  if (!state.isBraceletMode) {
+    // Free mode: drag a bead outside the circle to remove it
+    let hitIdx = -1;
+    state.beadsOnCanvas.forEach(({ body }, i) => {
+      if (Math.hypot(mx - body.position.x, my - body.position.y) < r * 1.3) hitIdx = i;
+    });
+    if (hitIdx < 0) return;
+    const entry = state.beadsOnCanvas[hitIdx];
+    state.freeDraggingBody = entry.body;
+    state.freeDraggingBeadDef = entry.beadDef;
+    // Freeze the body so Matter.js physics can't move it while we drag manually
+    Matter.Body.setStatic(entry.body, true);
+    setupWindowDrag(finishFreeDrag);
+    return;
+  }
+
+  // ── Bracelet mode ──────────────────────────────────────────────────────────
+  const brRadius = state.circleRadius * 0.72;
 
   // Check if the click lands on a bracelet bead
   let hitIndex = -1;
@@ -1132,31 +1225,7 @@ canvas.addEventListener('mousedown', e => {
 
   if (hitIndex >= 0) {
     state.draggingBeadIndex = hitIndex;
-    // Track the pointer anywhere on the page during a bead drag so it can be
-    // moved outside the circle (into the trash zone). Works for both mouse and touch.
-    windowDragMoveHandler = ev => {
-      let clientX, clientY;
-      if (ev.touches || ev.changedTouches) {
-        const t = ev.touches[0] || ev.changedTouches[0];
-        if (!t) return;
-        ev.preventDefault();
-        clientX = t.clientX;
-        clientY = t.clientY;
-      } else {
-        clientX = ev.clientX;
-        clientY = ev.clientY;
-      }
-      const physRect = canvas.getBoundingClientRect();
-      state.mouseX = clientX - physRect.left;
-      state.mouseY = clientY - physRect.top;
-      const ovRect = overlayCanvas.getBoundingClientRect();
-      state.overlayMouseX = clientX - ovRect.left;
-      state.overlayMouseY = clientY - ovRect.top;
-    };
-    window.addEventListener('mousemove', windowDragMoveHandler);
-    window.addEventListener('touchmove', windowDragMoveHandler, { passive: false });
-    window.addEventListener('mouseup', finishBeadDrag, { once: true });
-    window.addEventListener('touchend', finishBeadDrag, { once: true });
+    setupWindowDrag(finishBeadDrag);
   } else {
     state.isDraggingBracelet = true;
     state.dragStartAngle = Math.atan2(my - cy, mx - cx);
