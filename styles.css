@@ -686,12 +686,33 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
     height: auto;
   }
 
-  /* Canvas area height drives canvas sizing on mobile */
+  /* On mobile the button flows below the canvas rather than overlapping it */
   .canvas-area {
     flex: none;
-    height: 90vw;
-    max-height: 420px;
-    min-height: 240px;
+    height: auto;
+    min-height: 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding-bottom: 8px;
+  }
+
+  /* Canvas-wrap takes the explicit height that canvas-area held on desktop */
+  .canvas-wrap {
+    width: 100%;
+    height: 85vw;
+    max-height: 400px;
+    min-height: 280px;
+    flex-shrink: 0;
+  }
+
+  /* Button back in normal flow, centred below the canvas */
+  .arrange-btn,
+  .arrange-btn:hover {
+    position: static;
+    transform: none;
+    bottom: auto;
+    left: auto;
   }
 
   .picker {

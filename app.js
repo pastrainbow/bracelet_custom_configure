@@ -164,7 +164,14 @@ function buildCircularWalls(cx, cy, radius, count) {
 
 function resizeCanvas() {
   const area = document.getElementById('canvasArea');
-  const available = Math.min(area.offsetWidth - 40, area.offsetHeight - 80);
+  let available;
+  if (window.matchMedia('(max-width: 639px)').matches) {
+    // On mobile the button flows below canvas-wrap, so size from wrap height directly
+    const wrap = area.querySelector('.canvas-wrap');
+    available = Math.min(area.offsetWidth - 40, wrap.offsetHeight - 40);
+  } else {
+    available = Math.min(area.offsetWidth - 40, area.offsetHeight - 80);
+  }
   state.canvasSize = Math.max(280, Math.min(420, available));
   state.circleRadius = state.canvasSize * 0.44;
 
@@ -1536,7 +1543,7 @@ function renderBeadList(beads) {
 
     list.appendChild(row);
   });
-  if (selectedRow) selectedRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  if (selectedRow && !state.wheelOpen) selectedRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 }
 
 // ─── PICKER UI ───────────────────────────────────────────────────────────────
