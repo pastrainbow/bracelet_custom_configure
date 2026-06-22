@@ -271,6 +271,7 @@ function removeBraceletBead(index) {
 
 function resizeBead(index, newSizeMm) {
   const entry = state.beadsOnCanvas[index];
+  if (entry.beadDef.shape) return; // accessories are fixed-size
   if (entry.size === newSizeMm) return;
 
   const oldBody = entry.body;
@@ -1274,7 +1275,8 @@ function updateSidebar() {
   document.getElementById('priceDisplay').innerHTML = `<span>$</span>${total.toFixed(2)}`;
   document.getElementById('infoCount').textContent = `${count} / 40`;
   document.getElementById('infoLength').textContent = count > 0 ? `~${lengthCm} cm` : '— cm';
-  const maxSize = beads.length > 0 ? Math.max(...beads.map(b => b.size)) : state.beadSize;
+  const beadsOnly = beads.filter(b => !b.beadDef.shape);
+  const maxSize = beadsOnly.length > 0 ? Math.max(...beadsOnly.map(b => b.size)) : state.beadSize;
   document.getElementById('infoSize').textContent = `${maxSize}mm`;
 
   renderBeadList(beads);
@@ -1322,8 +1324,8 @@ function renderBeadList(beads) {
     top.append(dot, name, price, rm);
     row.appendChild(top);
 
-    // ── Size pills — only for the selected bead ──
-    if (isSelected) {
+    // ── Size pills — only for selected beads (not accessories, which are fixed-size) ──
+    if (isSelected && !b.beadDef.shape) {
       const sizeBtns = document.createElement('div');
       sizeBtns.className = 'bead-size-btns';
       [6, 10, 12, 14].forEach(mm => {
@@ -1655,7 +1657,7 @@ function hitTestBead(mx, my) {
       const r  = mmToRadius(b.size);
       if (Math.hypot(mx - bx, my - by) < r * 1.3) {
         const idx = state.beadsOnCanvas.findIndex(e => e.body === b.body);
-        if (idx >= 0) result = { idx, canvasX: bx, canvasY: by };
+        if (idx >= 0 && !b.beadDef.shape) result = { idx, canvasX: bx, canvasY: by };
       }
     });
     return result;
@@ -1664,7 +1666,7 @@ function hitTestBead(mx, my) {
     state.beadsOnCanvas.forEach((entry, i) => {
       const { x, y } = entry.body.position;
       const r = mmToRadius(entry.size);
-      if (Math.hypot(mx - x, my - y) < r * 1.3) result = { idx: i, canvasX: x, canvasY: y };
+      if (!entry.beadDef.shape && Math.hypot(mx - x, my - y) < r * 1.3) result = { idx: i, canvasX: x, canvasY: y };
     });
     return result;
   }
