@@ -187,7 +187,7 @@ function spawnBead(beadDef) {
 
   const body = Matter.Bodies.circle(x, y, beadRadius(), {
     restitution: 0.82,
-    friction: 0.4,
+    friction: 0.0,
     frictionAir: 0.003,
     frictionAngular: 0.001,
     density: 0.002,
