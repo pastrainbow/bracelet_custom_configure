@@ -123,7 +123,7 @@ let engine, world, runner;
 let windowDragMoveHandler = null;
 
 function initPhysics() {
-  engine = Matter.Engine.create({ gravity: { x: 0, y: 0.4 } });
+  engine = Matter.Engine.create({ gravity: { x: 0, y: 0.6 } });
   world = engine.world;
 
   const walls = buildCircularWalls(state.canvasSize / 2, state.canvasSize / 2, state.circleRadius, 64);
@@ -146,7 +146,7 @@ function buildCircularWalls(cx, cy, radius, count) {
       cx + Math.cos(angle) * radius,
       cy + Math.sin(angle) * radius,
       12, 18,
-      { isStatic: true, angle, friction: 0.3, restitution: 0.5, label: 'wall' }
+      { isStatic: true, angle, friction: 0.05, restitution: 0.8, label: 'wall' }
     );
   });
 }
@@ -186,15 +186,16 @@ function spawnBead(beadDef) {
   const y = cx - state.circleRadius * 0.6 + Math.random() * 20;
 
   const body = Matter.Bodies.circle(x, y, beadRadius(), {
-    restitution: 0.65,
-    friction: 0.1,
-    frictionAir: 0.008,
+    restitution: 0.82,
+    friction: 0.4,
+    frictionAir: 0.003,
+    frictionAngular: 0.001,
     density: 0.002,
     label: 'bead',
   });
 
-  Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 6, y: Math.random() * 3 + 1 });
-  Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.3);
+  Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: Math.random() * 4 + 6 });
+  Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.5);
   Matter.World.add(world, body);
 
   state.beadsOnCanvas.push({ body, beadDef, size: state.beadSize });
@@ -208,9 +209,10 @@ function addBeadToBracelet(beadDef) {
 
   // Create a static body at the circle centre; the arrange animation flies it outward
   const body = Matter.Bodies.circle(cx, cy, beadRadius(), {
-    restitution: 0.65,
-    friction: 0.1,
-    frictionAir: 0.008,
+    restitution: 0.82,
+    friction: 0.4,
+    frictionAir: 0.003,
+    frictionAngular: 0.001,
     density: 0.002,
     label: 'bead',
     isStatic: true,
@@ -280,10 +282,13 @@ function resizeBead(index, newSizeMm) {
   const isStatic = oldBody.isStatic;
 
   const newBody = Matter.Bodies.circle(pos.x, pos.y, newRadius, {
-    restitution: 0.65, friction: 0.1, frictionAir: 0.008,
-    density: 0.002, label: 'bead', isStatic,
+    restitution: 0.82, friction: 0.4, frictionAir: 0.003,
+    frictionAngular: 0.001, density: 0.002, label: 'bead', isStatic,
   });
-  if (!isStatic) Matter.Body.setVelocity(newBody, oldBody.velocity);
+  if (!isStatic) {
+    Matter.Body.setVelocity(newBody, oldBody.velocity);
+    Matter.Body.setAngularVelocity(newBody, oldBody.angularVelocity);
+  }
 
   Matter.World.remove(world, oldBody);
   Matter.World.add(world, newBody);
@@ -395,9 +400,9 @@ function finishFreeDrag() {
   } else if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
     if (idx >= 0) removeBead(idx);
   } else {
-    // Release back into physics with a small nudge
     Matter.Body.setStatic(body, false);
-    Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 3, y: (Math.random() - 0.5) * 3 });
+    Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 2, y: 8 });
+    Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.3);
   }
 
   state.freeDraggingBody = null;
@@ -650,7 +655,7 @@ function drawTrashOverlay(x, y, r, c = ctx) {
   c.restore();
 }
 
-function drawBead(x, y, r, beadDef, c = ctx) {
+function drawBead(x, y, r, beadDef, c = ctx, angle = 0) {
   c.save();
   c.shadowColor = 'rgba(0,0,0,0.25)';
   c.shadowBlur = 8;
@@ -674,6 +679,7 @@ function drawBead(x, y, r, beadDef, c = ctx) {
   c.fill();
   c.restore();
 
+  // Fixed primary specular (light always from upper-left)
   const spec = c.createRadialGradient(x - r * 0.32, y - r * 0.35, 0, x - r * 0.2, y - r * 0.2, r * 0.55);
   spec.addColorStop(0, 'rgba(255,255,255,0.75)');
   spec.addColorStop(0.4, 'rgba(255,255,255,0.2)');
@@ -683,6 +689,24 @@ function drawBead(x, y, r, beadDef, c = ctx) {
   c.fillStyle = spec;
   c.fill();
 
+  // Rotating secondary shimmer — orbits the bead interior as it spins,
+  // making the rotation physically visible
+  const sa = angle * 1.4; // faster apparent orbit than raw physics angle
+  const sx = x + r * 0.42 * Math.cos(sa);
+  const sy = y + r * 0.42 * Math.sin(sa);
+  const spin = c.createRadialGradient(sx, sy, 0, sx, sy, r * 0.38);
+  const alpha = beadDef.shimmer ? 0.45 : 0.28;
+  spin.addColorStop(0, `rgba(255,255,255,${alpha})`);
+  spin.addColorStop(1, 'rgba(255,255,255,0)');
+  c.save();
+  c.beginPath();
+  c.arc(x, y, r, 0, Math.PI * 2);
+  c.clip();
+  c.fillStyle = spin;
+  c.fillRect(x - r, y - r, r * 2, r * 2);
+  c.restore();
+
+  // Rim darkening
   const rim = c.createRadialGradient(x, y, r * 0.6, x, y, r);
   rim.addColorStop(0, 'rgba(0,0,0,0)');
   rim.addColorStop(1, 'rgba(0,0,0,0.18)');
@@ -1086,25 +1110,29 @@ function shapeCross(c, x, y, r, color) {
   c.restore();
 }
 
-function drawAccessory(x, y, r, def, c = ctx) {
+function drawAccessory(x, y, r, def, c = ctx, angle = 0) {
+  c.save();
+  c.translate(x, y);
+  c.rotate(angle);
   switch (def.shape) {
-    case 'heart':     shapeHeart(c, x, y, r, def.color);    break;
-    case 'star':      shapeStar(c, x, y, r, def.color);     break;
-    case 'moon':      shapeMoon(c, x, y, r, def.color);     break;
-    case 'butterfly': shapeButterfly(c, x, y, r, def.color);break;
-    case 'flower':    shapeFlower(c, x, y, r, def.color);   break;
-    case 'infinity':  shapeInfinity(c, x, y, r, def.color); break;
-    case 'flat-disc': shapeFlatDisc(c, x, y, r, def.color); break;
-    case 'rondelle':  shapeRondelle(c, x, y, r, def.color); break;
-    case 'coin':      shapeCoin(c, x, y, r, def.color);     break;
-    case 'evil-eye':  shapeEvilEye(c, x, y, r, def.color);  break;
-    case 'hexagon':   shapeHexagon(c, x, y, r, def.color);  break;
-    case 'cross':     shapeCross(c, x, y, r, def.color);    break;
+    case 'heart':     shapeHeart(c, 0, 0, r, def.color);    break;
+    case 'star':      shapeStar(c, 0, 0, r, def.color);     break;
+    case 'moon':      shapeMoon(c, 0, 0, r, def.color);     break;
+    case 'butterfly': shapeButterfly(c, 0, 0, r, def.color);break;
+    case 'flower':    shapeFlower(c, 0, 0, r, def.color);   break;
+    case 'infinity':  shapeInfinity(c, 0, 0, r, def.color); break;
+    case 'flat-disc': shapeFlatDisc(c, 0, 0, r, def.color); break;
+    case 'rondelle':  shapeRondelle(c, 0, 0, r, def.color); break;
+    case 'coin':      shapeCoin(c, 0, 0, r, def.color);     break;
+    case 'evil-eye':  shapeEvilEye(c, 0, 0, r, def.color);  break;
+    case 'hexagon':   shapeHexagon(c, 0, 0, r, def.color);  break;
+    case 'cross':     shapeCross(c, 0, 0, r, def.color);    break;
   }
+  c.restore();
 }
 
-function drawItem(x, y, r, def, c = ctx) {
-  def.shape ? drawAccessory(x, y, r, def, c) : drawBead(x, y, r, def, c);
+function drawItem(x, y, r, def, c = ctx, angle = 0) {
+  def.shape ? drawAccessory(x, y, r, def, c, angle) : drawBead(x, y, r, def, c, angle);
 }
 
 function renderLoop() {
@@ -1161,7 +1189,8 @@ function renderLoop() {
       if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
         const draggingEntry = state.beadsOnCanvas.find(e => e.body === state.freeDraggingBody);
         const r = draggingEntry ? mmToRadius(draggingEntry.size) : beadRadius();
-        drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx);
+        const dragAngle = state.freeDraggingBody.angle;
+        drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx, dragAngle);
         drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
       }
     }
@@ -1239,7 +1268,7 @@ function renderFreeBeads(cx, cy) {
       Matter.Body.setPosition(body, { x: state.mouseX, y: state.mouseY });
       // Draw inside the circle at a slightly enlarged scale; outside is on the overlay
       if (Math.hypot(state.mouseX - cx, state.mouseY - cy) <= state.circleRadius) {
-        drawItem(state.mouseX, state.mouseY, r * 1.12, beadDef);
+        drawItem(state.mouseX, state.mouseY, r * 1.12, beadDef, ctx, body.angle);
       }
       return;
     }
@@ -1258,7 +1287,7 @@ function renderFreeBeads(cx, cy) {
       Matter.Body.setVelocity(body, { x: vel.x - 1.8 * dot * nx, y: vel.y - 1.8 * dot * ny });
     }
 
-    drawItem(body.position.x, body.position.y, r, beadDef);
+    drawItem(body.position.x, body.position.y, r, beadDef, ctx, body.angle);
     if (idx === state.selectedBeadIndex) drawSelectionRing(body.position.x, body.position.y, r);
   });
 }
