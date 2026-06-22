@@ -570,6 +570,53 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
 
 .cta-secondary:hover { border-color: var(--accent2); color: var(--accent2); }
 
+/* ── TEXTURE PICKER ── */
+.texture-grid {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.texture-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 5px;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.texture-swatch:hover { background: var(--bg); }
+
+.texture-circle {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15), inset -2px -2px 6px rgba(0, 0, 0, 0.1);
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.texture-swatch:hover .texture-circle { transform: scale(1.08); }
+
+.texture-swatch.active .texture-circle {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent2), 0 1px 6px rgba(0, 0, 0, 0.15);
+}
+
+.texture-label {
+  font-size: 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.texture-swatch.active .texture-label {
+  color: var(--text);
+  font-weight: 700;
+}
+
 /* ── MISC ── */
 .hr { border: none; border-top: 1px solid var(--border); }
 
