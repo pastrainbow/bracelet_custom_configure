@@ -76,6 +76,13 @@ const SUPERCATS = {
   ],
 };
 
+// ─── WHEEL CONSTANTS ─────────────────────────────────────────────────────────
+
+// Sectors 0-3 map clockwise to: right(10), bottom(12), left(14), top(6)
+const WHEEL_SIZES = [10, 12, 14, 6];
+const WHEEL_INNER = 26;   // inner hole radius (px on overlay canvas)
+const WHEEL_OUTER = 70;   // outer radius
+
 // ─── STATE ───────────────────────────────────────────────────────────────────
 
 const state = {
@@ -100,7 +107,14 @@ const state = {
   freeDraggingBeadDef: null,
   mouseDownX: 0,          // canvas-space pointer position at last mousedown (for tap detection)
   mouseDownY: 0,
-  selectedBeadIndex: -1,  // index into beadsOnCanvas of the bead whose size picker is open
+  selectedBeadIndex: -1,  // index into beadsOnCanvas of the bead with a visible outline
+  // ── size wheel ──
+  wheelOpen: false,
+  wheelBeadIndex: -1,     // beadsOnCanvas index of the bead the wheel is centred on
+  wheelCenterX: 0,        // overlay-canvas coordinates of the wheel centre
+  wheelCenterY: 0,
+  wheelHoveredSector: -1, // 0-3, or -1 for none
+  wheelLongPressTimer: null,
 };
 
 // ─── PHYSICS ─────────────────────────────────────────────────────────────────
@@ -347,12 +361,7 @@ function finishBeadDrag() {
     const cy = state.canvasSize / 2;
     const wasTap = Math.hypot(state.mouseX - state.mouseDownX, state.mouseY - state.mouseDownY) < 8;
 
-    if (wasTap) {
-      // Tap on a bracelet bead: select it
-      const b = state.braceletBeads[state.draggingBeadIndex];
-      const idx = state.beadsOnCanvas.findIndex(e => e.body === b.body);
-      if (idx >= 0) { state.selectedBeadIndex = idx; updateSidebar(); }
-    } else if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
+    if (!wasTap && Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
       removeBraceletBead(state.draggingBeadIndex);
     }
   }
@@ -379,10 +388,9 @@ function finishFreeDrag() {
   const wasTap = Math.hypot(state.mouseX - state.mouseDownX, state.mouseY - state.mouseDownY) < 8;
 
   if (wasTap) {
-    // Tap on a free bead: restore physics and select it
+    // Plain tap: just release the bead with no nudge
     Matter.Body.setStatic(body, false);
     Matter.Body.setVelocity(body, { x: 0, y: 0 });
-    if (idx >= 0) { state.selectedBeadIndex = idx; updateSidebar(); }
   } else if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > state.circleRadius) {
     if (idx >= 0) removeBead(idx);
   } else {
@@ -424,6 +432,122 @@ function drawSelectionRing(x, y, r, c = ctx) {
   c.shadowColor = 'rgba(100,140,255,0.55)';
   c.shadowBlur = 10;
   c.stroke();
+  c.restore();
+}
+
+// ─── SIZE WHEEL ──────────────────────────────────────────────────────────────
+
+let wheelOutsideHandler = null;
+
+function getWheelSector(dx, dy) {
+  const a = Math.atan2(dy, dx);
+  const rotated = ((a + Math.PI / 4) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+  return Math.floor(rotated / (Math.PI / 2)) % 4;
+}
+
+function openSizeWheel(beadsIdx, canvasX, canvasY) {
+  // Convert bead canvas coords → overlay canvas coords
+  const cr = canvas.getBoundingClientRect();
+  const or = overlayCanvas.getBoundingClientRect();
+  const scale = cr.width / state.canvasSize;
+  state.wheelCenterX = (cr.left + canvasX * scale) - or.left;
+  state.wheelCenterY = (cr.top  + canvasY * scale) - or.top;
+
+  state.wheelOpen         = true;
+  state.wheelBeadIndex    = beadsIdx;
+  state.wheelHoveredSector = -1;
+  state.selectedBeadIndex = beadsIdx;
+
+  overlayCanvas.style.pointerEvents = 'auto';
+  overlayCanvas.style.cursor = 'pointer';
+  updateSidebar();
+
+  // Close when clicking outside the overlay canvas
+  wheelOutsideHandler = e => {
+    if (!overlayCanvas.contains(e.target)) closeSizeWheel();
+  };
+  setTimeout(() => document.addEventListener('pointerdown', wheelOutsideHandler), 0);
+}
+
+function closeSizeWheel() {
+  if (!state.wheelOpen) return;
+  state.wheelOpen = false;
+  state.wheelBeadIndex = -1;
+  state.wheelHoveredSector = -1;
+  overlayCanvas.style.pointerEvents = 'none';
+  overlayCanvas.style.cursor = '';
+  if (state.wheelLongPressTimer) {
+    clearTimeout(state.wheelLongPressTimer);
+    state.wheelLongPressTimer = null;
+  }
+  if (wheelOutsideHandler) {
+    document.removeEventListener('pointerdown', wheelOutsideHandler);
+    wheelOutsideHandler = null;
+  }
+}
+
+function drawSizeWheel(c) {
+  const cx = state.wheelCenterX;
+  const cy = state.wheelCenterY;
+  const hover = state.wheelHoveredSector;
+  const curSize = state.beadsOnCanvas[state.wheelBeadIndex]?.size;
+
+  c.save();
+
+  for (let i = 0; i < 4; i++) {
+    const sa = i * Math.PI / 2 - Math.PI / 4;
+    const ea = sa + Math.PI / 2;
+    const isCurrent = WHEEL_SIZES[i] === curSize;
+    const isHovered = i === hover;
+    const outerR = isHovered ? WHEEL_OUTER + 10 : WHEEL_OUTER;
+
+    // Sector fill
+    c.beginPath();
+    c.moveTo(cx + WHEEL_INNER * Math.cos(sa), cy + WHEEL_INNER * Math.sin(sa));
+    c.arc(cx, cy, outerR, sa, ea);
+    c.arc(cx, cy, WHEEL_INNER, ea, sa, true);
+    c.closePath();
+
+    c.shadowColor = 'rgba(0,0,0,0.18)';
+    c.shadowBlur  = 12;
+    c.shadowOffsetY = 3;
+    c.fillStyle = isHovered ? '#b8860b'
+                : isCurrent ? 'rgba(184,134,11,0.22)'
+                : 'rgba(255,255,255,0.93)';
+    c.fill();
+    c.shadowColor = 'transparent';
+    c.strokeStyle = isHovered ? '#a07020' : 'rgba(180,160,120,0.35)';
+    c.lineWidth   = 1.5;
+    c.stroke();
+
+    // Size label
+    const centerA = i * Math.PI / 2;
+    const labelR  = (WHEEL_INNER + WHEEL_OUTER) / 2 + (isHovered ? 5 : 0);
+    c.fillStyle  = isHovered ? '#fff' : isCurrent ? '#7a5a10' : '#555';
+    c.font       = `${isHovered ? 'bold ' : ''}12px -apple-system,sans-serif`;
+    c.textAlign  = 'center';
+    c.textBaseline = 'middle';
+    c.fillText(`${WHEEL_SIZES[i]}mm`, cx + labelR * Math.cos(centerA), cy + labelR * Math.sin(centerA));
+  }
+
+  // Inner close-circle
+  c.beginPath();
+  c.arc(cx, cy, WHEEL_INNER - 2, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(255,255,255,0.96)';
+  c.shadowColor = 'rgba(0,0,0,0.1)';
+  c.shadowBlur = 6;
+  c.fill();
+  c.shadowColor = 'transparent';
+  c.strokeStyle = 'rgba(180,160,120,0.4)';
+  c.lineWidth = 1;
+  c.stroke();
+
+  c.fillStyle = '#aaa';
+  c.font = '13px sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.fillText('✕', cx, cy);
+
   c.restore();
 }
 
@@ -1015,27 +1139,30 @@ function renderLoop() {
   drawWatermark(cx, cy);
   ctx.restore(); // Remove circular clip
 
-  // Clear the overlay every frame, then draw the outside-dragged bead onto it.
-  // The overlay canvas fills the full left panel so the bead is never clipped.
+  // Clear the overlay every frame; draw size wheel or outside-drag bead.
   overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-  // Bracelet mode: dragged bead outside the circle
-  if (animationPhase === 'bracelet' && state.draggingBeadIndex >= 0) {
-    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
-      const b = state.braceletBeads[state.draggingBeadIndex];
-      const r = mmToRadius(b.size);
-      drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, b.beadDef, overlayCtx);
-      drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+  if (state.wheelOpen) {
+    drawSizeWheel(overlayCtx);
+  } else {
+    // Bracelet mode: dragged bead outside the circle
+    if (animationPhase === 'bracelet' && state.draggingBeadIndex >= 0) {
+      if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
+        const b = state.braceletBeads[state.draggingBeadIndex];
+        const r = mmToRadius(b.size);
+        drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, b.beadDef, overlayCtx);
+        drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+      }
     }
-  }
 
-  // Free mode: manually dragged bead outside the circle
-  if (!animationPhase && state.freeDraggingBody) {
-    if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
-      const draggingEntry = state.beadsOnCanvas.find(e => e.body === state.freeDraggingBody);
-      const r = draggingEntry ? mmToRadius(draggingEntry.size) : beadRadius();
-      drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx);
-      drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+    // Free mode: manually dragged bead outside the circle
+    if (!animationPhase && state.freeDraggingBody) {
+      if (Math.hypot(state.mouseX - cx, state.mouseY - cy) > circleRadius) {
+        const draggingEntry = state.beadsOnCanvas.find(e => e.body === state.freeDraggingBody);
+        const r = draggingEntry ? mmToRadius(draggingEntry.size) : beadRadius();
+        drawItem(state.overlayMouseX, state.overlayMouseY, r * 1.12, state.freeDraggingBeadDef, overlayCtx);
+        drawTrashOverlay(state.overlayMouseX, state.overlayMouseY, r * 1.12, overlayCtx);
+      }
     }
   }
 }
@@ -1147,7 +1274,8 @@ function updateSidebar() {
   document.getElementById('priceDisplay').innerHTML = `<span>$</span>${total.toFixed(2)}`;
   document.getElementById('infoCount').textContent = `${count} / 40`;
   document.getElementById('infoLength').textContent = count > 0 ? `~${lengthCm} cm` : '— cm';
-  document.getElementById('infoSize').textContent = `${state.beadSize}mm`;
+  const maxSize = beads.length > 0 ? Math.max(...beads.map(b => b.size)) : state.beadSize;
+  document.getElementById('infoSize').textContent = `${maxSize}mm`;
 
   renderBeadList(beads);
 }
@@ -1205,6 +1333,8 @@ function renderBeadList(beads) {
         btn.addEventListener('click', e => {
           e.stopPropagation();
           resizeBead(idx, mm);
+          document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+          closeSizeWheel();
           updateSidebar();
         });
         sizeBtns.appendChild(btn);
@@ -1506,6 +1636,164 @@ document.getElementById('saveBtn').addEventListener('click', () => {
   } else {
     prompt('Copy this link to save your design:', url);
   }
+});
+
+// ─── SIZE WHEEL EVENT WIRING ─────────────────────────────────────────────────
+
+// Helper: hit-test beads in canvas coordinates, returns {idx, canvasX, canvasY} or null
+function hitTestBead(mx, my) {
+  const cx = state.canvasSize / 2;
+  const cy = state.canvasSize / 2;
+
+  if (state.isBraceletMode) {
+    const brRadius = state.circleRadius * 0.72;
+    let result = null;
+    state.braceletBeads.forEach(b => {
+      const angle = b.targetAngle + state.braceletAngle;
+      const bx = cx + Math.cos(angle) * brRadius;
+      const by = cy + Math.sin(angle) * brRadius;
+      const r  = mmToRadius(b.size);
+      if (Math.hypot(mx - bx, my - by) < r * 1.3) {
+        const idx = state.beadsOnCanvas.findIndex(e => e.body === b.body);
+        if (idx >= 0) result = { idx, canvasX: bx, canvasY: by };
+      }
+    });
+    return result;
+  } else {
+    let result = null;
+    state.beadsOnCanvas.forEach((entry, i) => {
+      const { x, y } = entry.body.position;
+      const r = mmToRadius(entry.size);
+      if (Math.hypot(mx - x, my - y) < r * 1.3) result = { idx: i, canvasX: x, canvasY: y };
+    });
+    return result;
+  }
+}
+
+// Right-click (desktop) — open wheel
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (state.beadsOnCanvas.length === 0) return;
+  const rect = canvas.getBoundingClientRect();
+  const sx = state.canvasSize / rect.width;
+  const sy = state.canvasSize / rect.height;
+  const mx = (e.clientX - rect.left) * sx;
+  const my = (e.clientY - rect.top)  * sy;
+  const hit = hitTestBead(mx, my);
+  if (hit) openSizeWheel(hit.idx, hit.canvasX, hit.canvasY);
+});
+
+// Long-press (touch) — open wheel after 500 ms if finger barely moved
+canvas.addEventListener('touchstart', e => {
+  if (state.wheelOpen || e.touches.length !== 1) return;
+  const t = e.touches[0];
+  const rect = canvas.getBoundingClientRect();
+  const sx = state.canvasSize / rect.width;
+  const sy = state.canvasSize / rect.height;
+  const mx = (t.clientX - rect.left) * sx;
+  const my = (t.clientY - rect.top)  * sy;
+  const hit = hitTestBead(mx, my);
+  if (!hit) return;
+
+  const startX = t.clientX;
+  const startY = t.clientY;
+
+  state.wheelLongPressTimer = setTimeout(() => {
+    state.wheelLongPressTimer = null;
+
+    // Abort any drag the touch relay may have started
+    if (state.freeDraggingBody) {
+      Matter.Body.setStatic(state.freeDraggingBody, false);
+      Matter.Body.setVelocity(state.freeDraggingBody, { x: 0, y: 0 });
+      state.freeDraggingBody    = null;
+      state.freeDraggingBeadDef = null;
+    }
+    state.draggingBeadIndex = -1;
+    if (windowDragMoveHandler) {
+      window.removeEventListener('mousemove',  windowDragMoveHandler);
+      window.removeEventListener('touchmove',  windowDragMoveHandler);
+      windowDragMoveHandler = null;
+    }
+    window.removeEventListener('mouseup',  finishFreeDrag);
+    window.removeEventListener('touchend', finishFreeDrag);
+    window.removeEventListener('mouseup',  finishBeadDrag);
+    window.removeEventListener('touchend', finishBeadDrag);
+
+    openSizeWheel(hit.idx, hit.canvasX, hit.canvasY);
+  }, 500);
+
+  function cancelTimer() {
+    if (state.wheelLongPressTimer) {
+      clearTimeout(state.wheelLongPressTimer);
+      state.wheelLongPressTimer = null;
+    }
+    canvas.removeEventListener('touchmove',   onMove);
+    canvas.removeEventListener('touchend',    onEnd);
+    canvas.removeEventListener('touchcancel', onEnd);
+  }
+  function onMove(ev) {
+    const tt = ev.touches[0];
+    if (!tt || Math.hypot(tt.clientX - startX, tt.clientY - startY) > 8) cancelTimer();
+  }
+  function onEnd() { cancelTimer(); }
+
+  canvas.addEventListener('touchmove',   onMove,   { passive: true });
+  canvas.addEventListener('touchend',    onEnd,    { once: true });
+  canvas.addEventListener('touchcancel', onEnd,    { once: true });
+}, { passive: true });
+
+// Escape closes wheel
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSizeWheel(); });
+
+// Overlay canvas: mouse interaction while wheel is open
+overlayCanvas.addEventListener('mousemove', e => {
+  if (!state.wheelOpen) return;
+  const rect = overlayCanvas.getBoundingClientRect();
+  const dx = e.clientX - rect.left - state.wheelCenterX;
+  const dy = e.clientY - rect.top  - state.wheelCenterY;
+  const d  = Math.hypot(dx, dy);
+  state.wheelHoveredSector = (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12) ? getWheelSector(dx, dy) : -1;
+});
+
+overlayCanvas.addEventListener('click', e => {
+  if (!state.wheelOpen) return;
+  const rect = overlayCanvas.getBoundingClientRect();
+  const dx = e.clientX - rect.left - state.wheelCenterX;
+  const dy = e.clientY - rect.top  - state.wheelCenterY;
+  const d  = Math.hypot(dx, dy);
+  if (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12) {
+    resizeBead(state.wheelBeadIndex, WHEEL_SIZES[getWheelSector(dx, dy)]);
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    updateSidebar();
+  }
+  closeSizeWheel();
+});
+
+// Overlay canvas: touch interaction while wheel is open
+overlayCanvas.addEventListener('touchmove', e => {
+  if (!state.wheelOpen) return;
+  e.preventDefault();
+  const t    = e.touches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const dx = t.clientX - rect.left - state.wheelCenterX;
+  const dy = t.clientY - rect.top  - state.wheelCenterY;
+  const d  = Math.hypot(dx, dy);
+  state.wheelHoveredSector = (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12) ? getWheelSector(dx, dy) : -1;
+}, { passive: false });
+
+overlayCanvas.addEventListener('touchend', e => {
+  if (!state.wheelOpen) return;
+  const t    = e.changedTouches[0];
+  const rect = overlayCanvas.getBoundingClientRect();
+  const dx = t.clientX - rect.left - state.wheelCenterX;
+  const dy = t.clientY - rect.top  - state.wheelCenterY;
+  const d  = Math.hypot(dx, dy);
+  if (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12) {
+    resizeBead(state.wheelBeadIndex, WHEEL_SIZES[getWheelSector(dx, dy)]);
+    document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+    updateSidebar();
+  }
+  closeSizeWheel();
 });
 
 // ─── TOUCH RELAY ─────────────────────────────────────────────────────────────

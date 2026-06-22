@@ -198,6 +198,14 @@ nav button:hover:not(.active) { background: var(--border); color: var(--text); }
 .arrange-btn:hover { background: #444; transform: translateX(-50%) translateY(-1px); }
 .arrange-btn.bracelet-mode { background: var(--accent2); }
 
+.canvas-hint {
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+  opacity: 0.75;
+}
+
 /* ── BEAD PICKER ── */
 .picker {
   background: var(--surface);
