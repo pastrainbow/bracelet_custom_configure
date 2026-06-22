@@ -1908,7 +1908,9 @@ canvas.addEventListener('contextmenu', e => {
   if (hit) openSizeWheel(hit.idx, hit.canvasX, hit.canvasY);
 });
 
-// Long-press (touch) — open wheel after 500 ms if finger barely moved
+// Long-press (touch) — open wheel after 500 ms if finger barely moved.
+// After the wheel opens the finger is still down; dragging to a sector and
+// releasing selects that size without needing a second tap.
 canvas.addEventListener('touchstart', e => {
   if (state.wheelOpen || e.touches.length !== 1) return;
   const t = e.touches[0];
@@ -1944,7 +1946,50 @@ canvas.addEventListener('touchstart', e => {
     window.removeEventListener('mouseup',  finishBeadDrag);
     window.removeEventListener('touchend', finishBeadDrag);
 
+    // Remove the pre-open guards — finger is still down, wheel is now open
+    canvas.removeEventListener('touchmove',   onMovePre);
+    canvas.removeEventListener('touchend',    onEndPre);
+    canvas.removeEventListener('touchcancel', onEndPre);
+
     openSizeWheel(hit.idx, hit.canvasX, hit.canvasY);
+
+    // Track the continuing finger so the user can slide to a sector and release
+    function onDragMove(ev) {
+      if (!state.wheelOpen) return;
+      const tt = ev.touches[0];
+      if (!tt) return;
+      ev.preventDefault();
+      const ovRect = overlayCanvas.getBoundingClientRect();
+      const dx = tt.clientX - ovRect.left - state.wheelCenterX;
+      const dy = tt.clientY - ovRect.top  - state.wheelCenterY;
+      const d  = Math.hypot(dx, dy);
+      state.wheelHoveredSector = (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12)
+        ? getWheelSector(dx, dy) : -1;
+    }
+
+    function onDragEnd(ev) {
+      canvas.removeEventListener('touchmove',   onDragMove);
+      canvas.removeEventListener('touchend',    onDragEnd);
+      canvas.removeEventListener('touchcancel', onDragEnd);
+      if (!state.wheelOpen) return;
+      const tt = ev.changedTouches[0];
+      if (tt) {
+        const ovRect = overlayCanvas.getBoundingClientRect();
+        const dx = tt.clientX - ovRect.left - state.wheelCenterX;
+        const dy = tt.clientY - ovRect.top  - state.wheelCenterY;
+        const d  = Math.hypot(dx, dy);
+        if (d >= WHEEL_INNER && d <= WHEEL_OUTER + 12) {
+          resizeBead(state.wheelBeadIndex, WHEEL_SIZES[getWheelSector(dx, dy)]);
+          document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+          updateSidebar();
+        }
+      }
+      closeSizeWheel();
+    }
+
+    canvas.addEventListener('touchmove',   onDragMove, { passive: false });
+    canvas.addEventListener('touchend',    onDragEnd);
+    canvas.addEventListener('touchcancel', onDragEnd);
   }, 500);
 
   function cancelTimer() {
@@ -1952,19 +1997,19 @@ canvas.addEventListener('touchstart', e => {
       clearTimeout(state.wheelLongPressTimer);
       state.wheelLongPressTimer = null;
     }
-    canvas.removeEventListener('touchmove',   onMove);
-    canvas.removeEventListener('touchend',    onEnd);
-    canvas.removeEventListener('touchcancel', onEnd);
+    canvas.removeEventListener('touchmove',   onMovePre);
+    canvas.removeEventListener('touchend',    onEndPre);
+    canvas.removeEventListener('touchcancel', onEndPre);
   }
-  function onMove(ev) {
+  function onMovePre(ev) {
     const tt = ev.touches[0];
     if (!tt || Math.hypot(tt.clientX - startX, tt.clientY - startY) > 8) cancelTimer();
   }
-  function onEnd() { cancelTimer(); }
+  function onEndPre() { cancelTimer(); }
 
-  canvas.addEventListener('touchmove',   onMove,   { passive: true });
-  canvas.addEventListener('touchend',    onEnd,    { once: true });
-  canvas.addEventListener('touchcancel', onEnd,    { once: true });
+  canvas.addEventListener('touchmove',   onMovePre,   { passive: true });
+  canvas.addEventListener('touchend',    onEndPre,    { once: true });
+  canvas.addEventListener('touchcancel', onEndPre,    { once: true });
 }, { passive: true });
 
 // Escape closes wheel
