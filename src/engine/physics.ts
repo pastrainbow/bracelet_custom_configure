@@ -50,8 +50,8 @@ export function buildCircularWalls(
   });
 }
 
-/** Shared body options for a bead/accessory of the given radius. */
-export function beadBodyOptions(isStatic = false): Matter.IBodyDefinition {
+/** Shared body options for a bead/accessory. */
+function beadBodyOptions(): Matter.IBodyDefinition {
   // Note: Matter has no separate angular friction; frictionAir damps spin too.
   return {
     restitution: PHYSICS.restitution,
@@ -60,8 +60,20 @@ export function beadBodyOptions(isStatic = false): Matter.IBodyDefinition {
     frictionAir: PHYSICS.frictionAir,
     density: PHYSICS.density,
     label: 'bead',
-    isStatic,
   };
+}
+
+/**
+ * Create a bead body. Always built dynamic first, then toggled static via
+ * `Body.setStatic` — this makes Matter store the body's `_original` mass/inertia
+ * so it can be correctly restored when the bead later becomes dynamic again.
+ * Creating with `isStatic: true` in the options skips that bookkeeping and makes
+ * a later `setStatic(false)` corrupt the body (NaN position once it integrates).
+ */
+export function createBead(x: number, y: number, radius: number, isStatic = false): Matter.Body {
+  const body = Matter.Bodies.circle(x, y, radius, beadBodyOptions());
+  if (isStatic) Matter.Body.setStatic(body, true);
+  return body;
 }
 
 /**

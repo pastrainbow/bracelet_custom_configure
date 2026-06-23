@@ -19,7 +19,7 @@ import type { TextureId } from '@/data/textures';
 import { ITEM_BY_ID } from '@/data/catalogue';
 import {
   applyPointerRepulsion,
-  beadBodyOptions,
+  createBead,
   buildCircularWalls,
   createPhysics,
   type PhysicsWorld,
@@ -292,7 +292,7 @@ export class BraceletEngine {
     const x = cx + (Math.random() - 0.5) * 60;
     const y = cx - this.bowlRadius * 0.6 + Math.random() * 20;
 
-    const body = Matter.Bodies.circle(x, y, mmToRadius(size), beadBodyOptions());
+    const body = createBead(x, y, mmToRadius(size));
     Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: Math.random() * 4 + 6 });
     Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.5);
     Matter.World.add(this.pw.world, body);
@@ -303,7 +303,7 @@ export class BraceletEngine {
 
   private addToBracelet(def: ItemDef): void {
     const c = this.center;
-    const body = Matter.Bodies.circle(c, c, mmToRadius(this.beadSize), beadBodyOptions(true));
+    const body = createBead(c, c, mmToRadius(this.beadSize), true);
     Matter.World.add(this.pw.world, body);
 
     // Existing beads animate from their current ring positions.
@@ -369,7 +369,7 @@ export class BraceletEngine {
   private replaceBody(item: LiveItem, mm: number): void {
     const old = item.body;
     const isStatic = old.isStatic;
-    const body = Matter.Bodies.circle(old.position.x, old.position.y, mmToRadius(mm), beadBodyOptions(isStatic));
+    const body = createBead(old.position.x, old.position.y, mmToRadius(mm), isStatic);
     if (!isStatic) {
       Matter.Body.setVelocity(body, old.velocity);
       Matter.Body.setAngularVelocity(body, old.angularVelocity);
