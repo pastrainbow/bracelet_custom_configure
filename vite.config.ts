@@ -7,10 +7,13 @@ import { resolve } from 'node:path';
 //  - "widget": a single-file library bundle (mount API) for embedding in Shopify.
 //
 // Build the embeddable widget with:  npm run build:widget
-export default defineConfig(({ mode }) => {
+export default defineConfig(({ command, mode }) => {
   const isWidget = mode === 'widget';
 
   return {
+    // Relative base so the built SPA works from any sub-path (e.g. GitHub
+    // Pages project sites at /<repo>/). Dev server stays at '/'.
+    base: command === 'build' && !isWidget ? './' : '/',
     plugins: [react()],
     resolve: {
       alias: { '@': resolve(__dirname, 'src') },
