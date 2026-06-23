@@ -1,0 +1,58 @@
+{%- comment -%}
+  Bracelet Configurator — Shopify section/snippet example.
+
+  1. Build the widget:        npm run build:widget
+  2. Upload the two files from dist-widget/ to your theme assets:
+        - bracelet-configurator.umd.js
+        - bracelet-configurator.css
+  3. Include this snippet in a product template (or add as a section).
+
+  The widget calls `onAddToCart` with the chosen beads; this example posts to
+  Shopify's AJAX cart using a single "custom bracelet" product variant and
+  stores the design as line-item properties.
+{%- endcomment -%}
+
+<div
+  id="bracelet-configurator"
+  style="height: 720px; max-width: 1100px; margin: 0 auto;"
+></div>
+
+{{ 'bracelet-configurator.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'bracelet-configurator.umd.js' | asset_url }}" defer></script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!window.BraceletConfigurator) return;
+
+    // The product/variant the bracelet design is added against.
+    var CUSTOM_BRACELET_VARIANT_ID = {{ product.selected_or_first_available_variant.id | json }};
+
+    window.BraceletConfigurator.mount('#bracelet-configurator', {
+      wristHint: 'Wrist size: 15.5 – 16.5 cm',
+      initialDesign: new URLSearchParams(window.location.search).get('design') || undefined,
+
+      onAddToCart: function (payload) {
+        return fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: CUSTOM_BRACELET_VARIANT_ID,
+            quantity: 1,
+            properties: {
+              'Bead Count': payload.beadCount,
+              'Length (cm)': payload.estimatedLengthCm,
+              'Design': payload.designCode,
+              'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', '),
+            },
+          }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function () { window.location.href = '/cart'; });
+      },
+
+      onSaveDesign: function (code, url) {
+        console.log('Saved design', code, url);
+      },
+    });
+  });
+</script>

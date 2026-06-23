@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bracelet Studio — Custom Configurator</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="5"/>
+          <circle cx="12" cy="4" r="2"/>
+          <circle cx="12" cy="20" r="2"/>
+          <circle cx="4" cy="12" r="2"/>
+          <circle cx="20" cy="12" r="2"/>
+        </svg>
+      </div>
+      <div>
+        <div>Stone Studio</div>
+        <div class="logo-sub">Custom Bracelet Builder</div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <nav>
+      <button class="active">Design</button>
+      <button>Inspiration</button>
+      <button>Plans</button>
+      <button>My Orders</button>
+    </nav>
+    <div class="header-right">
+      <div class="wrist-hint">Wrist size: 15.5 – 16.5 cm</div>
+    </div>
+  </header>
+
+  <div class="main">
+
+    <div class="left">
+      <canvas id="overlayCanvas" class="overlay-canvas"></canvas>
+      <div class="canvas-area" id="canvasArea">
+        <div class="canvas-wrap">
+          <canvas id="physicsCanvas"></canvas>
+          <div class="canvas-ring" id="canvasRing"></div>
+          <div class="custom-cursor" id="cursor" style="display:none"></div>
+        </div>
+        <button class="arrange-btn" id="arrangeBtn">Arrange as Bracelet</button>
+      </div>
+      <p class="canvas-hint">Right-click or hold a bead to change its size</p>
+
+
+      <div class="picker">
+        <div class="super-tabs">
+          <button class="super-tab active" data-super="beads">Beads</button>
+          <button class="super-tab" data-super="accessories">Accessories</button>
+        </div>
+        <div class="picker-tabs" id="pickerTabs"></div>
+        <div class="bead-grid" id="beadGrid"></div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div>
+        <div class="order-header">
+          <div class="order-label">Order Summary</div>
+          <div class="bead-count-badge" id="beadCountBadge">0 beads</div>
+        </div>
+        <div class="price-display" id="priceDisplay"><span>$</span>0.00</div>
+      </div>
+
+      <hr class="hr" />
+
+      <div>
+        <div class="section-title">Bracelet Info</div>
+        <div class="info-grid">
+          <div class="info-row"><span class="info-key">Bead Count</span><span class="info-val" id="infoCount">0 / 40</span></div>
+          <div class="info-row"><span class="info-key">Est. Length</span><span class="info-val" id="infoLength">— cm</span></div>
+          <div class="info-row"><span class="info-key">Max Bead Size</span><span class="info-val" id="infoSize">10mm</span></div>
+          <div class="info-row"><span class="info-key">Recommended</span><span class="info-val">15.5 – 16.5 cm</span></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Beads Size</div>
+        <div class="size-selector">
+          <button class="size-btn" data-size="6">6mm</button>
+          <button class="size-btn active" data-size="10">10mm</button>
+          <button class="size-btn" data-size="12">12mm</button>
+          <button class="size-btn" data-size="14">14mm</button>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Background</div>
+        <div class="texture-grid" id="textureGrid"></div>
+      </div>
+
+      <hr class="hr" />
+
+      <div>
+        <div class="section-title">Your Beads</div>
+        <div class="bead-list" id="beadList">
+          <div class="empty-state">
+            <div class="icon">○</div>
+            Add beads from the picker below
+          </div>
+        </div>
+      </div>
+
+      <hr class="hr" />
+
+      <div>
+        <div class="section-title">Progress</div>
+        <div class="steps">
+          <div class="step active" id="step1"><div class="step-num">1</div><div>Choose your beads</div></div>
+          <div class="step" id="step2"><div class="step-num">2</div><div>Arrange into bracelet</div></div>
+          <div class="step" id="step3"><div class="step-num">3</div><div>Confirm &amp; add to cart</div></div>
+        </div>
+      </div>
+
+      <hr class="hr" />
+
+      <div>
+        <button class="cta-btn cta-primary" id="addToCartBtn">Add to Cart</button>
+        <button class="cta-btn cta-secondary" id="saveBtn">Save Design</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="data.js"></script>
+  <script src="state.js"></script>
+  <script src="physics.js"></script>
+  <script src="render.js"></script>
+  <script src="size-wheel.js"></script>
+  <script src="beads.js"></script>
+  <script src="sidebar.js"></script>
+  <script src="catalogue.js"></script>
+  <script src="events.js"></script>
+</body>
+</html>

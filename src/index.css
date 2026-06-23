@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * The widget is scoped under `.bcfg` so it can be embedded inside a Shopify
+ * theme without its styles leaking out (and host resets leaking in).
+ * Tailwind's preflight is disabled (see tailwind.config.js); the reset that
+ * replaces it lives in the `base` layer so width/style utilities still win.
+ */
+@layer base {
+  .bcfg {
+    /* ── Brand palette (also consumed by the canvas renderer) ── */
+    --bcfg-bg: #f5f3ef;
+    --bcfg-surface: #ffffff;
+    --bcfg-border: #e8e4de;
+    --bcfg-text: #1a1a1a;
+    --bcfg-muted: #8a8580;
+    --bcfg-accent: #2d2d2d;
+    --bcfg-accent2: #c8a96e;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: var(--bcfg-text);
+    background: var(--bcfg-bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /*
+   * `:where(.bcfg)` scopes the reset to the widget while contributing zero
+   * specificity — so Tailwind width/colour utilities still win, exactly as
+   * with real preflight (which uses bare element selectors).
+   */
+  :where(.bcfg) *,
+  :where(.bcfg) *::before,
+  :where(.bcfg) *::after {
+    box-sizing: border-box;
+    /*
+     * Restore the border normalization preflight would provide. Without it,
+     * native <button> elements keep the UA default `2px outset` border,
+     * rendering an odd beveled black outline. Borders stay opt-in via
+     * Tailwind's width utilities.
+     */
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+  }
+
+  :where(.bcfg) button {
+    font-family: inherit;
+    /* Buttons default to no background unless a utility sets one. */
+    background-color: transparent;
+    background-image: none;
+    cursor: pointer;
+  }
+}
+
+/* Thin, unobtrusive scrollbars within the widget */
+.bcfg ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+.bcfg ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.bcfg ::-webkit-scrollbar-thumb {
+  background: var(--bcfg-border);
+  border-radius: 4px;
+}
+
+/* Horizontal scroll row that hides its scrollbar (bead picker / tabs) */
+.bcfg .no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.bcfg .no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Standalone (non-embedded) full-page mode */
+html.bcfg-standalone,
+html.bcfg-standalone body {
+  margin: 0;
+  height: 100%;
+}
+
+html.bcfg-standalone #bracelet-configurator {
+  height: 100%;
+}
+
+@media (max-width: 639px) {
+  html.bcfg-standalone,
+  html.bcfg-standalone body,
+  html.bcfg-standalone #bracelet-configurator {
+    height: auto;
+  }
+}

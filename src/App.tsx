@@ -1,0 +1,29 @@
+import { useEffect } from 'react';
+import type { ConfiguratorOptions } from '@/shopify/integration';
+import { useStore } from '@/store/store';
+import { Header } from './components/Header';
+import { Studio } from './components/Studio';
+import { Sidebar } from './components/Sidebar';
+
+export interface AppProps {
+  options?: ConfiguratorOptions;
+}
+
+export function App({ options = {} }: AppProps) {
+  const setOptions = useStore((s) => s.setOptions);
+
+  // Make host options available to the store before the engine mounts.
+  useEffect(() => {
+    setOptions(options);
+  }, [options, setOptions]);
+
+  return (
+    <div className="bcfg flex h-full min-h-[600px] flex-col max-[639px]:h-auto max-[639px]:min-h-[100dvh]">
+      <Header wristHint={options.wristHint} />
+      <div className="grid min-h-0 flex-1 grid-cols-[1fr_300px] overflow-hidden max-[1024px]:grid-cols-[1fr_240px] max-[639px]:flex max-[639px]:flex-col max-[639px]:overflow-visible">
+        <Studio />
+        <Sidebar />
+      </div>
+    </div>
+  );
+}
