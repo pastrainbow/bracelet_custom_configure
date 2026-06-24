@@ -13,6 +13,7 @@ import {
   DEFAULT_BEAD_SIZE,
   HIT_SLOP,
   LONG_PRESS_MS,
+  MAX_DPR,
   PHYSICS,
   REFERENCE_CANVAS,
   TAP_THRESHOLD,
@@ -44,6 +45,15 @@ let nextId = 1;
 const makeId = () => `item-${nextId++}`;
 
 const MAX_LENGTH_MSG = `Maximum bracelet length (${MAX_BRACELET_LENGTH_CM} cm) reached`;
+
+// ── Fixed-timestep physics ──
+/** One physics step (ms) — physics is integrated in fixed slices for stability. */
+const PHYSICS_STEP_MS = 1000 / 60;
+/** Largest frame delta we honour; longer (tab was backgrounded) is clamped so
+ *  physics never tries to catch up with a huge jump. */
+const MAX_FRAME_MS = 1000 / 15;
+/** Safety cap on substeps per frame to avoid a spiral of death on slow devices. */
+const MAX_SUBSTEPS = 5;
 
 /** Internal live item — the serializable parts plus the Matter body & ring data. */
 interface LiveItem {
@@ -129,6 +139,14 @@ export class BraceletEngine {
 
   private rafId = 0;
   private running = false;
+  /** rAF timestamp of the previous frame; 0 before the first frame. */
+  private lastTime = 0;
+  /** Unspent frame time (ms) carried into the next physics step. */
+  private accumulator = 0;
+  /** Elapsed time (ms) of the current frame, used to time the arrange tween. */
+  private frameDt = PHYSICS_STEP_MS;
+  /** Whether the overlay canvas currently has anything drawn on it. */
+  private overlayHasContent = false;
 
   constructor(opts: EngineOptions) {
     this.canvas = opts.physicsCanvas;
@@ -152,7 +170,9 @@ export class BraceletEngine {
     // (dev CSS injection, fonts, fractional grid columns).
     requestAnimationFrame(() => this.resize());
     this.attachListeners();
-    this.loop();
+    this.lastTime = 0;
+    this.accumulator = 0;
+    this.rafId = requestAnimationFrame(this.loop);
     this.emit();
   }
 
@@ -188,7 +208,8 @@ export class BraceletEngine {
     this.bowlRadius = this.canvasSize * BOWL_RADIUS_RATIO;
     // Keep beads proportional to the bowl on every screen size.
     this.beadScale = this.canvasSize / REFERENCE_CANVAS;
-    this.dpr = window.devicePixelRatio || 1;
+    // Cap DPR so high-density phones don't tank the frame rate filling pixels.
+    this.dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR);
 
     // Crisp, DPR-aware backing store; drawing happens in CSS pixels.
     this.sizeCanvas(this.canvas, this.ctx, this.canvasSize, this.canvasSize);
@@ -510,18 +531,34 @@ export class BraceletEngine {
 
   // ── render loop ──────────────────────────────────────────────────────────────
 
-  private loop = (): void => {
+  private loop = (now: number): void => {
     if (!this.running) return;
     this.rafId = requestAnimationFrame(this.loop);
 
+    // Real elapsed time since the last frame, clamped so a long stall (e.g. the
+    // tab was backgrounded) doesn't trigger a huge catch-up.
+    if (this.lastTime === 0) this.lastTime = now;
+    const dt = Math.min(now - this.lastTime, MAX_FRAME_MS);
+    this.lastTime = now;
+    this.frameDt = dt;
+
     if (this.mode === 'free') {
-      Matter.Engine.update(this.pw.engine, 1000 / 60);
-      if (this.pointer.inCanvas && !this.drag) {
-        applyPointerRepulsion(
-          this.items.map((it) => it.body),
-          { x: this.pointer.x, y: this.pointer.y },
-        );
+      // Integrate physics in fixed slices so behaviour is frame-rate independent:
+      // a 30fps phone runs two steps per frame and stays at real-time speed.
+      this.accumulator += dt;
+      const repel = this.pointer.inCanvas && !this.drag;
+      const bodies = repel ? this.items.map((it) => it.body) : null;
+      let substeps = 0;
+      while (this.accumulator >= PHYSICS_STEP_MS && substeps < MAX_SUBSTEPS) {
+        if (bodies) applyPointerRepulsion(bodies, { x: this.pointer.x, y: this.pointer.y });
+        Matter.Engine.update(this.pw.engine, PHYSICS_STEP_MS);
+        this.accumulator -= PHYSICS_STEP_MS;
+        substeps += 1;
       }
+      // Too slow to keep up — drop the backlog rather than spiral.
+      if (substeps >= MAX_SUBSTEPS) this.accumulator = 0;
+    } else {
+      this.accumulator = 0;
     }
 
     this.renderScene();
@@ -530,6 +567,7 @@ export class BraceletEngine {
 
   /** Render a single frame on demand (used by tests where rAF is throttled). */
   renderFrame(): void {
+    this.frameDt = PHYSICS_STEP_MS;
     this.renderScene();
     this.renderOverlay();
   }
@@ -611,7 +649,12 @@ export class BraceletEngine {
 
   private renderArranging(cx: number, cy: number): void {
     const { ctx } = this;
-    this.arrangeProgress = Math.min(1, this.arrangeProgress + ARRANGE_SPEED);
+    // Advance by real elapsed time so the tween lasts the same wall-clock
+    // duration at any frame rate (ARRANGE_SPEED is calibrated per 60fps frame).
+    this.arrangeProgress = Math.min(
+      1,
+      this.arrangeProgress + ARRANGE_SPEED * (this.frameDt / PHYSICS_STEP_MS),
+    );
     const t = easeInOut(this.arrangeProgress);
     const br = this.braceletRadius;
 
@@ -671,7 +714,20 @@ export class BraceletEngine {
 
   private renderOverlay(): void {
     const { octx } = this;
+
+    const dragItem = this.draggedItem();
+    const showDrag = dragItem !== null && this.pointerOutsideBowl();
+    const showCursor =
+      this.mode === 'free' && !this.drag && this.pointer.inCanvas && this.pointer.fine;
+    const needsContent = this.wheel.open || showDrag || showCursor;
+
+    // The overlay spans the whole panel and is expensive to clear on mobile —
+    // skip entirely while it's idle (the common case on touch devices).
+    if (!needsContent && !this.overlayHasContent) return;
+
     octx.clearRect(0, 0, this.overlayW, this.overlayH);
+    this.overlayHasContent = needsContent;
+    if (!needsContent) return;
 
     if (this.wheel.open) {
       const cur = this.items.find((it) => it.id === this.wheel.itemId)?.size;
@@ -685,15 +741,14 @@ export class BraceletEngine {
     }
 
     // Drag-out-to-delete preview while a bead is held outside the bowl.
-    const dragItem = this.draggedItem();
-    if (dragItem && this.pointerOutsideBowl()) {
+    if (showDrag && dragItem) {
       const r = this.displayRadius(dragItem.size);
       drawItem(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12, dragItem.def, dragItem.body.angle);
       drawTrashOverlay(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12);
     }
 
     // Custom cursor ring in free mode (fine pointers only).
-    if (this.mode === 'free' && !this.drag && this.pointer.inCanvas && this.pointer.fine) {
+    if (showCursor) {
       octx.save();
       octx.beginPath();
       octx.arc(this.pointer.overlayX, this.pointer.overlayY, 10, 0, Math.PI * 2);

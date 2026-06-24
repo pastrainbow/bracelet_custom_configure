@@ -34,6 +34,12 @@ export const CANVAS_MAX = 420;
  * canvas keeps large/desktop screens at the original 1:1 bead size.
  */
 export const REFERENCE_CANVAS = CANVAS_MAX;
+/**
+ * Upper bound on the rendering device-pixel-ratio. High-DPR phones (dpr 3) fill
+ * ~2.25× more pixels per frame than dpr 2 for no perceptible gain on a canvas
+ * this size; capping keeps the frame rate up without looking blurry.
+ */
+export const MAX_DPR = 2;
 /** Bowl radius as a fraction of the canvas size. */
 export const BOWL_RADIUS_RATIO = 0.44;
 /** Bracelet ring radius as a fraction of the bowl radius. */
