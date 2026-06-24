@@ -10,6 +10,19 @@ export const DEFAULT_BEAD_SIZE: BeadSizeMm = 10;
 /** Pixels of bead radius per millimetre of diameter. */
 export const MM_TO_RADIUS = 2.2;
 
+// ── Wrist fit ──
+// A bracelet should sit a little larger than the wrist for comfort. The
+// recommended bracelet length is the wrist circumference plus a comfort ease;
+// the snug→loose ease range below also defines the "good fit" band.
+export const WRIST_MIN_CM = 10;
+export const WRIST_MAX_CM = 25;
+/** Fallback wrist size (cm) applied when an out-of-range value is entered. */
+export const DEFAULT_WRIST_CM = 16;
+/** Comfort ease added to wrist circumference for a snug fit (cm). */
+export const BRACELET_EASE_MIN_CM = 1.3;
+/** Comfort ease added to wrist circumference for a loose fit (cm). */
+export const BRACELET_EASE_MAX_CM = 2.3;
+
 // ── Canvas sizing ──
 export const CANVAS_MIN = 280;
 export const CANVAS_MAX = 420;

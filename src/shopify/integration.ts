@@ -7,6 +7,8 @@ export interface AddToCartPayload {
   beadCount: number;
   totalPrice: number;
   estimatedLengthCm: number;
+  /** Shopper's wrist circumference in cm, or null if not provided. */
+  wristSizeCm: number | null;
   /** Compact, shareable encoding of the design (defId@size,defId@size,…). */
   designCode: string;
 }

@@ -1,4 +1,13 @@
+import { useEffect, useState } from 'react';
+import {
+  BRACELET_EASE_MAX_CM,
+  BRACELET_EASE_MIN_CM,
+  DEFAULT_WRIST_CM,
+  WRIST_MAX_CM,
+  WRIST_MIN_CM,
+} from '@/config/constants';
 import { selectTotals, useStore } from '@/store/store';
+import { cn } from '../ui/cn';
 import { SectionTitle } from '../ui/SectionTitle';
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -10,17 +19,177 @@ function Row({ label, value }: { label: string; value: string }) {
   );
 }
 
+/** Editable wrist-size field (cm). Commits to the store only when valid. */
+function isInBounds(n: number): boolean {
+  return Number.isFinite(n) && n >= WRIST_MIN_CM && n <= WRIST_MAX_CM;
+}
+
+function WristSizeField({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (cm: number | null) => void;
+}) {
+  const showError = useStore((s) => s.showError);
+  const [text, setText] = useState(value != null ? String(value) : '');
+
+  // Keep the field in sync if the value is changed elsewhere (e.g. reset).
+  useEffect(() => {
+    setText(value != null ? String(value) : '');
+  }, [value]);
+
+  // While typing, only live-commit valid in-bounds values; don't nag the user
+  // mid-entry (e.g. "1" on the way to "16"). Validation happens on commit.
+  const handleChange = (raw: string) => {
+    setText(raw);
+    const n = Number.parseFloat(raw);
+    onChange(isInBounds(n) ? n : null);
+  };
+
+  // On blur / Enter: an out-of-range value resets to the default and explains.
+  const handleCommit = () => {
+    const raw = text.trim();
+    if (raw === '') {
+      onChange(null); // intentionally cleared — no error
+      return;
+    }
+    const n = Number.parseFloat(raw);
+    if (!isInBounds(n)) {
+      onChange(DEFAULT_WRIST_CM);
+      setText(String(DEFAULT_WRIST_CM));
+      showError(`Wrist size out of range — must be ${WRIST_MIN_CM}–${WRIST_MAX_CM} cm`);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between border-b border-bg py-2 text-[13px]">
+      <span className="text-muted">Wrist Size</span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          inputMode="decimal"
+          min={WRIST_MIN_CM}
+          max={WRIST_MAX_CM}
+          step={0.5}
+          value={text}
+          onChange={(e) => handleChange(e.target.value)}
+          onBlur={handleCommit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur();
+          }}
+          placeholder="16"
+          aria-label="Wrist size in centimetres"
+          className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-right text-[13px] font-semibold text-ink outline-none transition-colors focus:border-gold"
+        />
+        <span className="text-xs text-muted">cm</span>
+      </div>
+    </div>
+  );
+}
+
+interface FitStatus {
+  label: string;
+  fillClass: string;
+  textClass: string;
+}
+
+function getFitStatus(est: number, recMin: number, recMax: number, hasBeads: boolean): FitStatus {
+  if (!hasBeads) {
+    return { label: 'Add beads to reach your size', fillClass: 'bg-muted', textClass: 'text-muted' };
+  }
+  if (est < recMin) {
+    return {
+      label: `${(recMin - est).toFixed(1)} cm to go`,
+      fillClass: 'bg-gold',
+      textClass: 'text-gold',
+    };
+  }
+  if (est > recMax) {
+    return {
+      label: `${(est - recMax).toFixed(1)} cm too long — remove some beads`,
+      fillClass: 'bg-red-500',
+      textClass: 'text-red-600',
+    };
+  }
+  return {
+    label: 'Great fit for your wrist ✓',
+    fillClass: 'bg-emerald-500',
+    textClass: 'text-emerald-600',
+  };
+}
+
+/** Recommended bracelet length range (cm) for a given wrist size. */
+function recommendedRange(wrist: number): { recMin: number; recMax: number } {
+  return { recMin: wrist + BRACELET_EASE_MIN_CM, recMax: wrist + BRACELET_EASE_MAX_CM };
+}
+
+/** Fit bar showing how the estimated length matches the recommended range. */
+function FitBar({ wrist, est, hasBeads }: { wrist: number; est: number; hasBeads: boolean }) {
+  const { recMin, recMax } = recommendedRange(wrist);
+  // A little headroom past the ideal zone so an over-long bracelet reads as overshoot.
+  const scaleMax = recMax + 1.5;
+
+  const pct = (cm: number) => `${Math.max(0, Math.min(1, cm / scaleMax)) * 100}%`;
+  const status = getFitStatus(est, recMin, recMax, hasBeads);
+
+  return (
+    <div className="mt-2.5">
+      <div
+        className="relative h-2.5 w-full overflow-hidden rounded-full bg-bg"
+        role="progressbar"
+        aria-valuemin={0}
+        aria-valuemax={Math.round(scaleMax)}
+        aria-valuenow={Number(est.toFixed(1))}
+        aria-label="Bracelet length versus recommended fit"
+      >
+        {/* Ideal "good fit" zone — the target to fill up to. */}
+        <div
+          className="absolute inset-y-0 bg-emerald-300/45"
+          style={{ left: pct(recMin), width: `calc(${pct(recMax)} - ${pct(recMin)})` }}
+        />
+        {/* Current estimated length. */}
+        <div
+          className={cn(
+            'absolute inset-y-0 left-0 rounded-full transition-all duration-300',
+            status.fillClass,
+          )}
+          style={{ width: pct(est) }}
+        />
+      </div>
+      <div className={cn('mt-1.5 text-[12px] font-medium', status.textClass)}>{status.label}</div>
+    </div>
+  );
+}
+
 export function BraceletInfo() {
   const { count, lengthCm } = useStore((s) => selectTotals(s));
+  const wristSizeCm = useStore((s) => s.wristSizeCm);
+  const setWristSize = useStore((s) => s.setWristSize);
+
+  const hasBeads = count > 0;
+  const est = hasBeads ? lengthCm : 0;
+  const rec = wristSizeCm != null ? recommendedRange(wristSizeCm) : null;
 
   return (
     <div>
       <SectionTitle>Bracelet Info</SectionTitle>
+
       <div className="grid gap-2">
-        <Row label="Bead Count" value={`${count}`} />
-        <Row label="Est. Length" value={count > 0 ? `~${lengthCm} cm` : '— cm'} />
-        <Row label="Recommended" value="15.5 – 16.5 cm" />
+        <Row label="Est. Length" value={hasBeads ? `~${lengthCm} cm` : '— cm'} />
+        {rec && (
+          <Row label="Recommended" value={`${rec.recMin.toFixed(1)} – ${rec.recMax.toFixed(1)} cm`} />
+        )}
+        <WristSizeField value={wristSizeCm} onChange={setWristSize} />
       </div>
+
+      {wristSizeCm != null ? (
+        <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} />
+      ) : (
+        <p className="mt-2 text-[12px] leading-snug text-muted">
+          Enter your wrist size for a personalised recommended length and live fit check.
+        </p>
+      )}
     </div>
   );
 }

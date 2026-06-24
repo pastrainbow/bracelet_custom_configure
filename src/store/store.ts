@@ -27,6 +27,8 @@ interface ConfiguratorState {
   selectedId: string | null;
   beadSize: number;
   texture: TextureId;
+  /** Shopper's wrist circumference in cm, or null until entered. */
+  wristSizeCm: number | null;
   /** Highest completed step (0–3) for the progress tracker. */
   progress: number;
   cartPending: boolean;
@@ -46,6 +48,7 @@ interface ConfiguratorState {
   selectItem: (id: string | null) => void;
   setBeadSize: (mm: number) => void;
   setTexture: (id: TextureId) => void;
+  setWristSize: (cm: number | null) => void;
   toggleArrange: () => void;
   addToCart: () => Promise<void>;
   saveDesign: () => void;
@@ -60,6 +63,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   selectedId: null,
   beadSize: DEFAULT_BEAD_SIZE,
   texture: 'default',
+  wristSizeCm: null,
   progress: 0,
   cartPending: false,
   error: null,
@@ -100,10 +104,12 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
     get().engine?.setTexture(id);
   },
 
+  setWristSize: (cm) => set({ wristSizeCm: cm }),
+
   toggleArrange: () => get().engine?.toggleArrange(),
 
   addToCart: async () => {
-    const { items, options } = get();
+    const { items, options, wristSizeCm } = get();
     if (items.length === 0) return;
 
     const totals = selectTotals(get());
@@ -118,6 +124,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
       beadCount: totals.count,
       totalPrice: totals.totalPrice,
       estimatedLengthCm: totals.lengthCm,
+      wristSizeCm,
       designCode: encodeDesign(items),
     };
 
