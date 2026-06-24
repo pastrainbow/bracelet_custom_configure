@@ -5,6 +5,7 @@ import {
   ARRANGE_SPEED,
   BEAD_SIZES,
   BOWL_RADIUS_RATIO,
+  BRACELET_FIT_TOLERANCE,
   BRACELET_RADIUS_RATIO,
   CANVAS_MAX,
   CANVAS_MIN,
@@ -38,6 +39,9 @@ import { easeInOut } from './render/color';
 
 let nextId = 1;
 const makeId = () => `item-${nextId++}`;
+
+const OVERLAP_ADD_MSG = 'Bracelet is full — beads would overlap';
+const OVERLAP_SIZE_MSG = 'Not enough room — beads would overlap';
 
 /** Internal live item — the serializable parts plus the Matter body & ring data. */
 interface LiveItem {
@@ -73,6 +77,8 @@ export interface EngineOptions {
   overlayCanvas: HTMLCanvasElement;
   container: HTMLElement;
   onChange: (summary: EngineSummary) => void;
+  /** Surface a transient, user-facing error (e.g. an overlap rejection). */
+  onError: (msg: string) => void;
 }
 
 /**
@@ -87,6 +93,7 @@ export class BraceletEngine {
   private readonly octx: CanvasRenderingContext2D;
   private readonly container: HTMLElement;
   private readonly onChange: (summary: EngineSummary) => void;
+  private readonly onError: (msg: string) => void;
 
   private pw: PhysicsWorld;
   private walls: Matter.Body[] = [];
@@ -119,6 +126,7 @@ export class BraceletEngine {
     this.overlay = opts.overlayCanvas;
     this.container = opts.container;
     this.onChange = opts.onChange;
+    this.onError = opts.onError;
     this.ctx = this.canvas.getContext('2d')!;
     this.octx = this.overlay.getContext('2d')!;
     this.pw = createPhysics();
@@ -217,12 +225,43 @@ export class BraceletEngine {
 
   // ── public mutations (called from the UI via the store) ─────────────────────
 
-  addItem(def: ItemDef): void {
+  /**
+   * Add a bead/accessory. Returns `false` (adding nothing, and reporting an
+   * error) when the new bead would not fit on the ring without overlapping.
+   */
+  addItem(def: ItemDef): boolean {
+    const radii = this.items.map((it) => mmToRadius(it.size));
+    radii.push(mmToRadius(this.beadSize)); // new bead is appended to the ring
+    if (this.ringOverlaps(radii)) {
+      this.onError(OVERLAP_ADD_MSG);
+      return false;
+    }
     if (this.mode === 'bracelet' || this.mode === 'arranging') {
       this.addToBracelet(def);
     } else {
       this.spawnFree(def);
     }
+    return true;
+  }
+
+  /**
+   * Whether the given radii — placed in order, evenly spaced on the ring —
+   * would make any adjacent pair overlap. Beads sit with centres on a ring of
+   * radius R, separated by 2π/N; adjacent centres are a chord `2·R·sin(π/N)`
+   * apart and must clear the sum of the two radii.
+   */
+  private ringOverlaps(radii: number[]): boolean {
+    const n = radii.length;
+    if (n < 2) return false;
+
+    const minCentreDist = 2 * this.braceletRadius * Math.sin(Math.PI / n);
+    let maxAdjacentSum = 0;
+    for (let i = 0; i < n; i++) {
+      const sum = radii[i] + radii[(i + 1) % n];
+      if (sum > maxAdjacentSum) maxAdjacentSum = sum;
+    }
+    // +tolerance so a near-perfect (touching) fit is still allowed.
+    return minCentreDist + BRACELET_FIT_TOLERANCE < maxAdjacentSum;
   }
 
   removeItem(id: string): void {
@@ -239,19 +278,40 @@ export class BraceletEngine {
     this.emit();
   }
 
-  resizeItem(id: string, mm: number): void {
+  /**
+   * Resize one bead. Returns `false` (changing nothing, and reporting an error)
+   * when the new size would overlap a neighbour on the ring.
+   */
+  resizeItem(id: string, mm: number): boolean {
     const item = this.items.find((it) => it.id === id);
-    if (!item || isAccessory(item.def) || item.size === mm) return;
+    if (!item || isAccessory(item.def) || item.size === mm) return false;
+
+    const radii = this.items.map((it) => mmToRadius(it === item ? mm : it.size));
+    if (this.ringOverlaps(radii)) {
+      this.onError(OVERLAP_SIZE_MSG);
+      return false;
+    }
     this.replaceBody(item, mm);
     this.emit();
+    return true;
   }
 
-  setBeadSize(mm: number): void {
+  /**
+   * Set the default size and resize every existing bead to it. Returns `false`
+   * (applying nothing) when doing so would overlap beads on the ring.
+   */
+  setBeadSize(mm: number): boolean {
+    const radii = this.items.map((it) => mmToRadius(isAccessory(it.def) ? it.size : mm));
+    if (this.ringOverlaps(radii)) {
+      this.onError(OVERLAP_SIZE_MSG);
+      return false;
+    }
     this.beadSize = mm;
     for (const item of this.items) {
       if (!isAccessory(item.def) && item.size !== mm) this.replaceBody(item, mm);
     }
     this.emit();
+    return true;
   }
 
   setTexture(id: TextureId): void {

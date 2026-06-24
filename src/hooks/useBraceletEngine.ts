@@ -19,13 +19,14 @@ export function useBraceletEngine(
     const overlayCanvas = overlayRef.current;
     if (!container || !physicsCanvas || !overlayCanvas) return;
 
-    const { syncFromEngine, attachEngine, options } = useStore.getState();
+    const { syncFromEngine, attachEngine, showError, options } = useStore.getState();
 
     const engine = new BraceletEngine({
       container,
       physicsCanvas,
       overlayCanvas,
       onChange: syncFromEngine,
+      onError: showError,
     });
 
     attachEngine(engine);

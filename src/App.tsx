@@ -4,6 +4,7 @@ import { useStore } from '@/store/store';
 import { Header } from './components/Header';
 import { Studio } from './components/Studio';
 import { Sidebar } from './components/Sidebar';
+import { ErrorToast } from './components/ErrorToast';
 
 export interface AppProps {
   options?: ConfiguratorOptions;
@@ -18,7 +19,8 @@ export function App({ options = {} }: AppProps) {
   }, [options, setOptions]);
 
   return (
-    <div className="bcfg flex h-full min-h-[600px] flex-col max-[639px]:h-auto max-[639px]:min-h-[100dvh]">
+    <div className="bcfg relative flex h-full min-h-[600px] flex-col max-[639px]:h-auto max-[639px]:min-h-[100dvh]">
+      <ErrorToast />
       <Header wristHint={options.wristHint} />
       <div className="grid min-h-0 flex-1 grid-cols-[1fr_300px] overflow-hidden max-[1024px]:grid-cols-[1fr_240px] max-[639px]:flex max-[639px]:flex-col max-[639px]:overflow-visible">
         <Studio />

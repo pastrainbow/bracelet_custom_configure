@@ -18,6 +18,9 @@ export const CANVAS_MAX = 420;
 export const BOWL_RADIUS_RATIO = 0.44;
 /** Bracelet ring radius as a fraction of the bowl radius. */
 export const BRACELET_RADIUS_RATIO = 0.72;
+/** Slack (px) allowed when checking whether a new bead fits the ring, so a
+ *  snug "beads touching" arrangement isn't rejected by floating-point noise. */
+export const BRACELET_FIT_TOLERANCE = 0.75;
 
 // ── Physics (tuned for realistic stone beads settling in a dish) ──
 export const PHYSICS = {

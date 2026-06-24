@@ -77,6 +77,21 @@
   display: none;
 }
 
+/* Error toast entrance (translateX is handled by the positioned wrapper) */
+@keyframes bcfg-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.bcfg .bcfg-toast {
+  animation: bcfg-toast-in 0.18s ease-out;
+}
+
 /* Standalone (non-embedded) full-page mode */
 html.bcfg-standalone,
 html.bcfg-standalone body {

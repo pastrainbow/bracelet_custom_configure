@@ -17,6 +17,9 @@ interface DerivedTotals {
   maxBeadSize: number;
 }
 
+const ERROR_DURATION_MS = 2600;
+let errorTimer: ReturnType<typeof setTimeout> | null = null;
+
 interface ConfiguratorState {
   engine: BraceletEngine | null;
   options: ConfiguratorOptions;
@@ -29,11 +32,14 @@ interface ConfiguratorState {
   /** Highest completed step (0–3) for the progress tracker. */
   progress: number;
   cartPending: boolean;
+  /** Transient error toast; `id` changes on each trigger to replay the animation. */
+  error: { msg: string; id: number } | null;
 
   // wiring
   attachEngine: (engine: BraceletEngine | null) => void;
   setOptions: (options: ConfiguratorOptions) => void;
   syncFromEngine: (summary: EngineSummary) => void;
+  showError: (msg: string) => void;
 
   // actions (delegate to the engine)
   addItem: (def: ItemDef) => void;
@@ -58,9 +64,16 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   texture: 'default',
   progress: 0,
   cartPending: false,
+  error: null,
 
   attachEngine: (engine) => set({ engine }),
   setOptions: (options) => set({ options }),
+
+  showError: (msg) => {
+    if (errorTimer) clearTimeout(errorTimer);
+    set({ error: { msg, id: Date.now() } });
+    errorTimer = setTimeout(() => set({ error: null }), ERROR_DURATION_MS);
+  },
 
   syncFromEngine: ({ items, mode, selectedId }) =>
     set((prev) => ({
@@ -70,14 +83,18 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
       progress: Math.max(prev.progress, items.length > 0 ? 1 : 0, mode !== 'free' ? 2 : 0),
     })),
 
+  // The engine reports overlap rejections via its onError callback (wired to
+  // showError), so these actions just delegate.
   addItem: (def) => get().engine?.addItem(def),
   removeItem: (id) => get().engine?.removeItem(id),
   resizeItem: (id, mm) => get().engine?.resizeItem(id, mm),
   selectItem: (id) => get().engine?.selectItem(id),
 
   setBeadSize: (mm) => {
-    set({ beadSize: mm });
-    get().engine?.setBeadSize(mm);
+    // Only commit the selected size if the engine actually applied it (a size
+    // increase that would overlap beads is rejected).
+    const applied = get().engine?.setBeadSize(mm);
+    if (applied !== false) set({ beadSize: mm });
   },
 
   setTexture: (id) => {
