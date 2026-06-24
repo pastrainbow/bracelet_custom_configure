@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import type { EngineSummary, ItemDef, PlacedItem, StudioMode } from '@/types';
-import { isAccessory } from '@/types';
 import { DEFAULT_BEAD_SIZE } from '@/config/constants';
 import type { TextureId } from '@/data/textures';
 import type { BraceletEngine } from '@/engine/BraceletEngine';

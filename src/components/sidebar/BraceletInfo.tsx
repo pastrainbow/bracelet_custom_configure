@@ -1,4 +1,3 @@
-import { MAX_BEADS } from '@/config/constants';
 import { selectTotals, useStore } from '@/store/store';
 import { SectionTitle } from '../ui/SectionTitle';
 
@@ -18,7 +17,7 @@ export function BraceletInfo() {
     <div>
       <SectionTitle>Bracelet Info</SectionTitle>
       <div className="grid gap-2">
-        <Row label="Bead Count" value={`${count} / ${MAX_BEADS}`} />
+        <Row label="Bead Count" value={`${count}`} />
         <Row label="Est. Length" value={count > 0 ? `~${lengthCm} cm` : '— cm'} />
         <Row label="Recommended" value="15.5 – 16.5 cm" />
       </div>

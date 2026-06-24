@@ -6,7 +6,6 @@ export const BEAD_SIZES = [6, 10, 12, 14] as const;
 export type BeadSizeMm = (typeof BEAD_SIZES)[number];
 
 export const DEFAULT_BEAD_SIZE: BeadSizeMm = 10;
-export const MAX_BEADS = 40;
 
 /** Pixels of bead radius per millimetre of diameter. */
 export const MM_TO_RADIUS = 2.2;
