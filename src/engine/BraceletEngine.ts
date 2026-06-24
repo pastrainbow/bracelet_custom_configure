@@ -5,8 +5,9 @@ import {
   ARRANGE_SPEED,
   BEAD_SIZES,
   BOWL_RADIUS_RATIO,
-  BRACELET_FIT_TOLERANCE,
+  BRACELET_PACK_RATIO,
   BRACELET_RADIUS_RATIO,
+  MAX_BRACELET_LENGTH_CM,
   CANVAS_MAX,
   CANVAS_MIN,
   DEFAULT_BEAD_SIZE,
@@ -42,8 +43,7 @@ import { easeInOut } from './render/color';
 let nextId = 1;
 const makeId = () => `item-${nextId++}`;
 
-const OVERLAP_ADD_MSG = 'Bracelet is full — beads would overlap';
-const OVERLAP_SIZE_MSG = 'Not enough room — beads would overlap';
+const MAX_LENGTH_MSG = `Maximum bracelet length (${MAX_BRACELET_LENGTH_CM} cm) reached`;
 
 /** Internal live item — the serializable parts plus the Matter body & ring data. */
 interface LiveItem {
@@ -113,6 +113,11 @@ export class BraceletEngine {
   private bowlRadius = 160;
   /** Multiplier applied to bead radii so they stay proportional across screens. */
   private beadScale = 360 / REFERENCE_CANVAS;
+  /** Extra ≤1 multiplier that shrinks beads so a crowded ring never overlaps. */
+  private fitScale = 1;
+  /** fitScale the beads were already shown at when the arrange animation began,
+   *  so they ease from their current size (not a jump to full size) to the new fit. */
+  private arrangeStartScale = 1;
   private overlayW = 0;
   private overlayH = 0;
   private dpr = 1;
@@ -254,9 +259,41 @@ export class BraceletEngine {
     return this.bowlRadius * BRACELET_RADIUS_RATIO;
   }
 
+  /** Rendered radius — beads shrink to fit the ring (fitScale) when arranged. */
+  private displayRadius(mm: number): number {
+    const fit = this.mode === 'free' ? 1 : this.fitScale;
+    return this.beadRadius(mm) * fit;
+  }
+
+  /**
+   * Largest scale ≤ 1 that keeps evenly-spaced beads from overlapping on the
+   * ring. Adjacent centres are `2·R·sin(π/n)` apart and must clear the summed
+   * radii; scale down until the tightest pair fits (with a small gap). The ratio
+   * is canvas-independent, so the fit is identical on every screen size.
+   */
+  private computeFitScale(): number {
+    const n = this.items.length;
+    if (n < 2) return 1;
+    const minCentreDist = 2 * this.braceletRadius * Math.sin(Math.PI / n);
+    let maxAdjacentSum = 0;
+    for (let i = 0; i < n; i++) {
+      const sum = this.beadRadius(this.items[i].size) + this.beadRadius(this.items[(i + 1) % n].size);
+      if (sum > maxAdjacentSum) maxAdjacentSum = sum;
+    }
+    if (maxAdjacentSum <= 0) return 1;
+    return Math.min(1, (minCentreDist / maxAdjacentSum) * BRACELET_PACK_RATIO);
+  }
+
+  /** Estimated strung length (cm) for a set of bead diameters (mm). */
+  private lengthOf(sizes: number[]): number {
+    return sizes.reduce((sum, mm) => sum + mm + 0.5, 0) * 0.1;
+  }
+
   // ── store sync ─────────────────────────────────────────────────────────────
 
   private emit(): void {
+    // Keep the auto-fit scale current with the latest arrangement.
+    this.fitScale = this.computeFitScale();
     this.onChange(this.getSummary());
   }
 
@@ -271,14 +308,14 @@ export class BraceletEngine {
   // ── public mutations (called from the UI via the store) ─────────────────────
 
   /**
-   * Add a bead/accessory. Returns `false` (adding nothing, and reporting an
-   * error) when the new bead would not fit on the ring without overlapping.
+   * Add a bead/accessory. Overlap is handled automatically (beads shrink to fit
+   * the ring), so the only rejection is exceeding the maximum bracelet length.
+   * Returns `false` (adding nothing, and reporting an error) when over the cap.
    */
   addItem(def: ItemDef): boolean {
-    const radii = this.items.map((it) => this.beadRadius(it.size));
-    radii.push(this.beadRadius(this.beadSize)); // new bead is appended to the ring
-    if (this.ringOverlaps(radii)) {
-      this.onError(OVERLAP_ADD_MSG);
+    const sizes = [...this.items.map((it) => it.size), this.beadSize];
+    if (this.lengthOf(sizes) > MAX_BRACELET_LENGTH_CM) {
+      this.onError(MAX_LENGTH_MSG);
       return false;
     }
     if (this.mode === 'bracelet' || this.mode === 'arranging') {
@@ -287,26 +324,6 @@ export class BraceletEngine {
       this.spawnFree(def);
     }
     return true;
-  }
-
-  /**
-   * Whether the given radii — placed in order, evenly spaced on the ring —
-   * would make any adjacent pair overlap. Beads sit with centres on a ring of
-   * radius R, separated by 2π/N; adjacent centres are a chord `2·R·sin(π/N)`
-   * apart and must clear the sum of the two radii.
-   */
-  private ringOverlaps(radii: number[]): boolean {
-    const n = radii.length;
-    if (n < 2) return false;
-
-    const minCentreDist = 2 * this.braceletRadius * Math.sin(Math.PI / n);
-    let maxAdjacentSum = 0;
-    for (let i = 0; i < n; i++) {
-      const sum = radii[i] + radii[(i + 1) % n];
-      if (sum > maxAdjacentSum) maxAdjacentSum = sum;
-    }
-    // +tolerance so a near-perfect (touching) fit is still allowed.
-    return minCentreDist + BRACELET_FIT_TOLERANCE < maxAdjacentSum;
   }
 
   removeItem(id: string): void {
@@ -324,16 +341,16 @@ export class BraceletEngine {
   }
 
   /**
-   * Resize one bead. Returns `false` (changing nothing, and reporting an error)
-   * when the new size would overlap a neighbour on the ring.
+   * Resize one bead. Beads auto-shrink to avoid overlap, so the only rejection
+   * is when the larger size would push the estimate over the max length.
    */
   resizeItem(id: string, mm: number): boolean {
     const item = this.items.find((it) => it.id === id);
     if (!item || isAccessory(item.def) || item.size === mm) return false;
 
-    const radii = this.items.map((it) => this.beadRadius(it === item ? mm : it.size));
-    if (this.ringOverlaps(radii)) {
-      this.onError(OVERLAP_SIZE_MSG);
+    const sizes = this.items.map((it) => (it === item ? mm : it.size));
+    if (this.lengthOf(sizes) > MAX_BRACELET_LENGTH_CM) {
+      this.onError(MAX_LENGTH_MSG);
       return false;
     }
     this.replaceBody(item, mm);
@@ -342,13 +359,13 @@ export class BraceletEngine {
   }
 
   /**
-   * Set the default size and resize every existing bead to it. Returns `false`
-   * (applying nothing) when doing so would overlap beads on the ring.
+   * Set the default size and resize every existing bead to it. Rejected only
+   * when the new sizes would push the estimate over the max length.
    */
   setBeadSize(mm: number): boolean {
-    const radii = this.items.map((it) => this.beadRadius(isAccessory(it.def) ? it.size : mm));
-    if (this.ringOverlaps(radii)) {
-      this.onError(OVERLAP_SIZE_MSG);
+    const sizes = this.items.map((it) => (isAccessory(it.def) ? it.size : mm));
+    if (this.lengthOf(sizes) > MAX_BRACELET_LENGTH_CM) {
+      this.onError(MAX_LENGTH_MSG);
       return false;
     }
     this.beadSize = mm;
@@ -407,6 +424,10 @@ export class BraceletEngine {
   }
 
   private addToBracelet(def: ItemDef): void {
+    // Capture the size the existing beads are already shown at, before emit()
+    // recomputes a (smaller) fitScale, so the animation eases from here.
+    this.arrangeStartScale = this.fitScale;
+
     const c = this.center;
     const body = createBead(c, c, this.beadRadius(this.beadSize), true);
     Matter.World.add(this.pw.world, body);
@@ -438,6 +459,8 @@ export class BraceletEngine {
   // ── arrange / scatter ────────────────────────────────────────────────────────
 
   private startArranging(): void {
+    // Beads come from the dish at full size, so ease from 1 → fitted size.
+    this.arrangeStartScale = 1;
     const n = this.items.length;
     this.items.forEach((item, i) => {
       item.startX = item.body.position.x;
@@ -592,8 +615,10 @@ export class BraceletEngine {
     const t = easeInOut(this.arrangeProgress);
     const br = this.braceletRadius;
 
+    const scale = this.arrangeStartScale + (this.fitScale - this.arrangeStartScale) * t;
     for (const item of this.items) {
-      const r = this.beadRadius(item.size);
+      // Ease from the size beads were already at to the fitted ring size.
+      const r = this.beadRadius(item.size) * scale;
       const tx = cx + Math.cos(item.targetAngle) * br;
       const ty = cy + Math.sin(item.targetAngle) * br;
       const px = item.startX + (tx - item.startX) * t;
@@ -619,7 +644,7 @@ export class BraceletEngine {
 
     for (const item of this.items) {
       if (item.id === draggingId) continue;
-      const r = this.beadRadius(item.size);
+      const r = this.displayRadius(item.size);
       const angle = item.targetAngle + this.braceletAngle;
       const x = cx + Math.cos(angle) * br;
       const y = cy + Math.sin(angle) * br;
@@ -630,7 +655,7 @@ export class BraceletEngine {
 
     if (draggingId) {
       const item = this.items.find((it) => it.id === draggingId)!;
-      const r = this.beadRadius(item.size);
+      const r = this.displayRadius(item.size);
       const outside = Math.hypot(this.pointer.x - cx, this.pointer.y - cy) > this.bowlRadius;
       if (outside) {
         Matter.Body.setPosition(item.body, { x: this.pointer.x, y: this.pointer.y });
@@ -662,7 +687,7 @@ export class BraceletEngine {
     // Drag-out-to-delete preview while a bead is held outside the bowl.
     const dragItem = this.draggedItem();
     if (dragItem && this.pointerOutsideBowl()) {
-      const r = this.beadRadius(dragItem.size);
+      const r = this.displayRadius(dragItem.size);
       drawItem(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12, dragItem.def, dragItem.body.angle);
       drawTrashOverlay(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12);
     }
@@ -742,7 +767,7 @@ export class BraceletEngine {
         bx = item.body.position.x;
         by = item.body.position.y;
       }
-      if (Math.hypot(this.pointer.x - bx, this.pointer.y - by) < this.beadRadius(item.size) * HIT_SLOP) {
+      if (Math.hypot(this.pointer.x - bx, this.pointer.y - by) < this.displayRadius(item.size) * HIT_SLOP) {
         found = item;
       }
     }
