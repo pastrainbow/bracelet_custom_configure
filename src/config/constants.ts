@@ -26,6 +26,14 @@ export const BRACELET_EASE_MAX_CM = 2.3;
 // ── Canvas sizing ──
 export const CANVAS_MIN = 280;
 export const CANVAS_MAX = 420;
+/**
+ * Canvas size (px) the bead scale is calibrated against. Bead radius is
+ * multiplied by `canvasSize / REFERENCE_CANVAS` so a bead keeps a constant
+ * proportion to the bowl/ring on every screen (otherwise beads stay a fixed
+ * pixel size while the ring shrinks on phones, causing overlap). Using the max
+ * canvas keeps large/desktop screens at the original 1:1 bead size.
+ */
+export const REFERENCE_CANVAS = CANVAS_MAX;
 /** Bowl radius as a fraction of the canvas size. */
 export const BOWL_RADIUS_RATIO = 0.44;
 /** Bracelet ring radius as a fraction of the bowl radius. */

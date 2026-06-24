@@ -13,6 +13,7 @@ import {
   HIT_SLOP,
   LONG_PRESS_MS,
   PHYSICS,
+  REFERENCE_CANVAS,
   TAP_THRESHOLD,
   WHEEL_HIT_PAD,
   WHEEL_SIZES,
@@ -110,6 +111,8 @@ export class BraceletEngine {
 
   private canvasSize = 360;
   private bowlRadius = 160;
+  /** Multiplier applied to bead radii so they stay proportional across screens. */
+  private beadScale = 360 / REFERENCE_CANVAS;
   private overlayW = 0;
   private overlayH = 0;
   private dpr = 1;
@@ -175,8 +178,11 @@ export class BraceletEngine {
       available = Math.min(areaW - 40, this.container.offsetHeight - 80);
     }
 
+    const prevSize = this.canvasSize;
     this.canvasSize = Math.max(CANVAS_MIN, Math.min(CANVAS_MAX, available));
     this.bowlRadius = this.canvasSize * BOWL_RADIUS_RATIO;
+    // Keep beads proportional to the bowl on every screen size.
+    this.beadScale = this.canvasSize / REFERENCE_CANVAS;
     this.dpr = window.devicePixelRatio || 1;
 
     // Crisp, DPR-aware backing store; drawing happens in CSS pixels.
@@ -188,10 +194,48 @@ export class BraceletEngine {
     this.overlayH = this.container.offsetHeight;
     this.sizeCanvas(this.overlay, this.octx, this.overlayW, this.overlayH);
 
+    // Rescale existing beads (size + position) so the layout is identical, just
+    // zoomed, when the canvas changes (e.g. window resize / phone rotation).
+    if (prevSize > 0 && prevSize !== this.canvasSize && this.items.length > 0) {
+      this.rescaleItems(prevSize);
+    }
+
     // Reposition the bowl walls for the new radius.
     Matter.World.remove(this.pw.world, this.walls);
     this.walls = buildCircularWalls(this.canvasSize / 2, this.canvasSize / 2, this.bowlRadius);
     Matter.World.add(this.pw.world, this.walls);
+  }
+
+  /** Bead/accessory radius (px) for a given diameter, scaled to the canvas. */
+  private beadRadius(mm: number): number {
+    return mmToRadius(mm) * this.beadScale;
+  }
+
+  /** Recreate every bead body, scaling radius and position from the old canvas. */
+  private rescaleItems(prevSize: number): void {
+    const k = this.canvasSize / prevSize;
+    const oldC = prevSize / 2;
+    const newC = this.canvasSize / 2;
+    for (const item of this.items) {
+      const x = newC + (item.body.position.x - oldC) * k;
+      const y = newC + (item.body.position.y - oldC) * k;
+      const isStatic = item.body.isStatic;
+      const velocity = { x: item.body.velocity.x * k, y: item.body.velocity.y * k };
+      const angularVelocity = item.body.angularVelocity;
+
+      Matter.World.remove(this.pw.world, item.body);
+      const body = createBead(x, y, this.beadRadius(item.size), isStatic);
+      if (!isStatic) {
+        Matter.Body.setVelocity(body, velocity);
+        Matter.Body.setAngularVelocity(body, angularVelocity);
+      }
+      Matter.World.add(this.pw.world, body);
+      item.body = body;
+
+      // Keep the in-flight arrange animation's start points in the new space.
+      item.startX = newC + (item.startX - oldC) * k;
+      item.startY = newC + (item.startY - oldC) * k;
+    }
   }
 
   private sizeCanvas(c: HTMLCanvasElement, cx: CanvasRenderingContext2D, w: number, h: number): void {
@@ -231,8 +275,8 @@ export class BraceletEngine {
    * error) when the new bead would not fit on the ring without overlapping.
    */
   addItem(def: ItemDef): boolean {
-    const radii = this.items.map((it) => mmToRadius(it.size));
-    radii.push(mmToRadius(this.beadSize)); // new bead is appended to the ring
+    const radii = this.items.map((it) => this.beadRadius(it.size));
+    radii.push(this.beadRadius(this.beadSize)); // new bead is appended to the ring
     if (this.ringOverlaps(radii)) {
       this.onError(OVERLAP_ADD_MSG);
       return false;
@@ -287,7 +331,7 @@ export class BraceletEngine {
     const item = this.items.find((it) => it.id === id);
     if (!item || isAccessory(item.def) || item.size === mm) return false;
 
-    const radii = this.items.map((it) => mmToRadius(it === item ? mm : it.size));
+    const radii = this.items.map((it) => this.beadRadius(it === item ? mm : it.size));
     if (this.ringOverlaps(radii)) {
       this.onError(OVERLAP_SIZE_MSG);
       return false;
@@ -302,7 +346,7 @@ export class BraceletEngine {
    * (applying nothing) when doing so would overlap beads on the ring.
    */
   setBeadSize(mm: number): boolean {
-    const radii = this.items.map((it) => mmToRadius(isAccessory(it.def) ? it.size : mm));
+    const radii = this.items.map((it) => this.beadRadius(isAccessory(it.def) ? it.size : mm));
     if (this.ringOverlaps(radii)) {
       this.onError(OVERLAP_SIZE_MSG);
       return false;
@@ -353,7 +397,7 @@ export class BraceletEngine {
     const x = cx + (Math.random() - 0.5) * 60;
     const y = cx - this.bowlRadius * 0.6 + Math.random() * 20;
 
-    const body = createBead(x, y, mmToRadius(size));
+    const body = createBead(x, y, this.beadRadius(size));
     Matter.Body.setVelocity(body, { x: (Math.random() - 0.5) * 4, y: Math.random() * 4 + 6 });
     Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.5);
     Matter.World.add(this.pw.world, body);
@@ -364,7 +408,7 @@ export class BraceletEngine {
 
   private addToBracelet(def: ItemDef): void {
     const c = this.center;
-    const body = createBead(c, c, mmToRadius(this.beadSize), true);
+    const body = createBead(c, c, this.beadRadius(this.beadSize), true);
     Matter.World.add(this.pw.world, body);
 
     // Existing beads animate from their current ring positions.
@@ -430,7 +474,7 @@ export class BraceletEngine {
   private replaceBody(item: LiveItem, mm: number): void {
     const old = item.body;
     const isStatic = old.isStatic;
-    const body = createBead(old.position.x, old.position.y, mmToRadius(mm), isStatic);
+    const body = createBead(old.position.x, old.position.y, this.beadRadius(mm), isStatic);
     if (!isStatic) {
       Matter.Body.setVelocity(body, old.velocity);
       Matter.Body.setAngularVelocity(body, old.angularVelocity);
@@ -505,7 +549,7 @@ export class BraceletEngine {
     const draggingId = this.drag?.kind === 'free' ? this.drag.itemId : null;
 
     for (const item of this.items) {
-      const r = mmToRadius(item.size);
+      const r = this.beadRadius(item.size);
       const maxDist = this.bowlRadius - r - 4;
 
       if (item.id === draggingId) {
@@ -549,7 +593,7 @@ export class BraceletEngine {
     const br = this.braceletRadius;
 
     for (const item of this.items) {
-      const r = mmToRadius(item.size);
+      const r = this.beadRadius(item.size);
       const tx = cx + Math.cos(item.targetAngle) * br;
       const ty = cy + Math.sin(item.targetAngle) * br;
       const px = item.startX + (tx - item.startX) * t;
@@ -575,7 +619,7 @@ export class BraceletEngine {
 
     for (const item of this.items) {
       if (item.id === draggingId) continue;
-      const r = mmToRadius(item.size);
+      const r = this.beadRadius(item.size);
       const angle = item.targetAngle + this.braceletAngle;
       const x = cx + Math.cos(angle) * br;
       const y = cy + Math.sin(angle) * br;
@@ -586,7 +630,7 @@ export class BraceletEngine {
 
     if (draggingId) {
       const item = this.items.find((it) => it.id === draggingId)!;
-      const r = mmToRadius(item.size);
+      const r = this.beadRadius(item.size);
       const outside = Math.hypot(this.pointer.x - cx, this.pointer.y - cy) > this.bowlRadius;
       if (outside) {
         Matter.Body.setPosition(item.body, { x: this.pointer.x, y: this.pointer.y });
@@ -618,7 +662,7 @@ export class BraceletEngine {
     // Drag-out-to-delete preview while a bead is held outside the bowl.
     const dragItem = this.draggedItem();
     if (dragItem && this.pointerOutsideBowl()) {
-      const r = mmToRadius(dragItem.size);
+      const r = this.beadRadius(dragItem.size);
       drawItem(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12, dragItem.def, dragItem.body.angle);
       drawTrashOverlay(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12);
     }
@@ -698,7 +742,7 @@ export class BraceletEngine {
         bx = item.body.position.x;
         by = item.body.position.y;
       }
-      if (Math.hypot(this.pointer.x - bx, this.pointer.y - by) < mmToRadius(item.size) * HIT_SLOP) {
+      if (Math.hypot(this.pointer.x - bx, this.pointer.y - by) < this.beadRadius(item.size) * HIT_SLOP) {
         found = item;
       }
     }
