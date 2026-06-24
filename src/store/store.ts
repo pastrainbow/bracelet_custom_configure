@@ -14,7 +14,6 @@ interface DerivedTotals {
   count: number;
   totalPrice: number;
   lengthCm: number;
-  maxBeadSize: number;
 }
 
 const ERROR_DURATION_MS = 2600;
@@ -160,12 +159,10 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
 
 /** Order summary numbers derived from the placed items. */
 export function selectTotals(state: Pick<ConfiguratorState, 'items' | 'beadSize'>): DerivedTotals {
-  const { items, beadSize } = state;
+  const { items } = state;
   const count = items.length;
   const totalPrice = items.reduce((sum, it) => sum + it.def.price, 0);
   // Approximate strung length: bead diameter + ~0.5mm spacing, in cm.
   const lengthCm = items.reduce((sum, it) => sum + it.size + 0.5, 0) * 0.1;
-  const beads = items.filter((it) => !isAccessory(it.def));
-  const maxBeadSize = beads.length > 0 ? Math.max(...beads.map((b) => b.size)) : beadSize;
-  return { count, totalPrice, lengthCm: Number(lengthCm.toFixed(1)), maxBeadSize };
+  return { count, totalPrice, lengthCm: Number(lengthCm.toFixed(1)) };
 }

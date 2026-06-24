@@ -12,7 +12,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export function BraceletInfo() {
-  const { count, lengthCm, maxBeadSize } = useStore((s) => selectTotals(s));
+  const { count, lengthCm } = useStore((s) => selectTotals(s));
 
   return (
     <div>
@@ -20,7 +20,6 @@ export function BraceletInfo() {
       <div className="grid gap-2">
         <Row label="Bead Count" value={`${count} / ${MAX_BEADS}`} />
         <Row label="Est. Length" value={count > 0 ? `~${lengthCm} cm` : '— cm'} />
-        <Row label="Max Bead Size" value={`${maxBeadSize}mm`} />
         <Row label="Recommended" value="15.5 – 16.5 cm" />
       </div>
     </div>
