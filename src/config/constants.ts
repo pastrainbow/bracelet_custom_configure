@@ -22,21 +22,34 @@ export const BRACELET_RADIUS_RATIO = 0.72;
  *  snug "beads touching" arrangement isn't rejected by floating-point noise. */
 export const BRACELET_FIT_TOLERANCE = 0.75;
 
-// ── Physics (tuned for realistic stone beads settling in a dish) ──
+// ── Physics (tuned to approximate real glass beads in a dish) ──
+// Glass is hard, dense and fairly elastic: beads drop with weight, click off
+// one another with a moderate-high bounce, roll easily, and settle firmly.
 export const PHYSICS = {
-  gravity: 0.9,
-  /** Beads are dense and only mildly bouncy — they settle rather than ping. */
-  restitution: 0.32,
-  friction: 0.18,
-  frictionStatic: 0.5,
-  frictionAir: 0.012,
-  density: 0.0024,
-  /** Soft mouse-repulsion that lets you nudge beads around in free mode. */
+  gravity: 1.0,
+  /** Coefficient of restitution. Polished glass spheres are quite bouncy
+   *  (real glass marbles sit around 0.5–0.7); 0.55 reads as a lively click
+   *  that still loses enough energy to settle. */
+  restitution: 0.55,
+  /** Glass-on-glass kinetic friction (~0.3–0.4 in reality): smooth, but with
+   *  enough grip that beads don't slide endlessly. */
+  friction: 0.32,
+  frictionStatic: 0.6,
+  /** Low air drag so heavy glass keeps its momentum and doesn't "float"; just
+   *  enough to damp jitter so a settled pile comes to rest. */
+  frictionAir: 0.008,
+  /** Dense, like real glass (~2.5 g/cm³) — beads feel weighty and authoritative
+   *  when they collide and stack. */
+  density: 0.0045,
+  /** Soft mouse-repulsion that lets you nudge beads around in free mode.
+   *  Bumped to stay usable now that the beads are heavier. */
   repelRadius: 64,
-  repelStrength: 0.0014,
+  repelStrength: 0.0026,
   /** Wall segment count for the circular bowl boundary. */
   wallSegments: 90,
-  wallRestitution: 0.45,
+  /** Bounce off the dish wall — matched to the bead restitution so the edge
+   *  feels like the same hard glass-on-rim contact. */
+  wallRestitution: 0.55,
 } as const;
 
 // ── Arrange animation ──

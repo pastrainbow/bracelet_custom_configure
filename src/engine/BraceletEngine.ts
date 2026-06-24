@@ -12,6 +12,7 @@ import {
   DEFAULT_BEAD_SIZE,
   HIT_SLOP,
   LONG_PRESS_MS,
+  PHYSICS,
   TAP_THRESHOLD,
   WHEEL_HIT_PAD,
   WHEEL_SIZES,
@@ -526,7 +527,12 @@ export class BraceletEngine {
         Matter.Body.setPosition(item.body, { x: cx + nx * maxDist, y: cy + ny * maxDist });
         const v = item.body.velocity;
         const dot = v.x * nx + v.y * ny;
-        Matter.Body.setVelocity(item.body, { x: v.x - 1.8 * dot * nx, y: v.y - 1.8 * dot * ny });
+        // Reflect only outward motion off the rim, with the bead's restitution
+        // (v' = v − (1+e)·(v·n)·n) so the edge bounce matches glass-on-glass.
+        if (dot > 0) {
+          const bounce = 1 + PHYSICS.wallRestitution;
+          Matter.Body.setVelocity(item.body, { x: v.x - bounce * dot * nx, y: v.y - bounce * dot * ny });
+        }
       }
 
       drawItem(ctx, item.body.position.x, item.body.position.y, r, item.def, item.body.angle);
