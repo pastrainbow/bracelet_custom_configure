@@ -23,10 +23,20 @@ export interface ConfiguratorOptions {
   onAddToCart?: (payload: AddToCartPayload) => void | Promise<void>;
   /** Called when the shopper saves/share their design (receives a deep link). */
   onSaveDesign?: (designCode: string, shareUrl: string) => void;
+  /**
+   * Called when the shopper shares their bracelet image from the preview view,
+   * receiving the rendered PNG. If omitted, the widget uses the Web Share API
+   * (mobile) and falls back to downloading the image (desktop).
+   */
+  onShare?: (image: Blob) => void | Promise<void>;
   /** Restore a previously saved design on mount. */
   initialDesign?: string;
   /** Override the wrist-size hint shown in the header. */
   wristHint?: string;
+  /** Brand name shown on the shareable card (default "Stone Studio"). */
+  brandName?: string;
+  /** Tagline shown under the brand on the shareable card. */
+  brandTagline?: string;
 }
 
 /** Encode placed items into a compact, URL-safe design code. */

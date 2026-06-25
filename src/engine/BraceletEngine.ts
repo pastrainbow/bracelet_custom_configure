@@ -392,6 +392,34 @@ export class BraceletEngine {
     };
   }
 
+  /**
+   * Draw the current bracelet (beads only, no bowl) centred at (cx, cy), scaled
+   * so its outermost edge reaches `outerRadius`. Reuses the live ring layout, so
+   * it renders the arranged bracelet regardless of the current mode — used by the
+   * share/preview view and its exported image.
+   */
+  drawBraceletPortrait(ctx: CanvasRenderingContext2D, cx: number, cy: number, outerRadius: number): void {
+    const n = this.items.length;
+    if (n === 0) return;
+
+    let maxBead = 0;
+    for (const it of this.items) {
+      const r = this.beadRadius(it.size) * this.fitScale;
+      if (r > maxBead) maxBead = r;
+    }
+    const extent = this.ringRadius + maxBead;
+    if (extent <= 0) return;
+
+    const scale = outerRadius / extent;
+    const R = this.ringRadius * scale;
+    for (const it of this.items) {
+      const a = it.targetAngle + this.braceletAngle;
+      const x = cx + Math.cos(a) * R;
+      const y = cy + Math.sin(a) * R;
+      drawItem(ctx, x, y, this.beadRadius(it.size) * this.fitScale * scale, it.def);
+    }
+  }
+
   // ── public mutations (called from the UI via the store) ─────────────────────
 
   /**

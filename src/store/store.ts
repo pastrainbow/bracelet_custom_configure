@@ -32,6 +32,8 @@ interface ConfiguratorState {
   /** Highest completed step (0–3) for the progress tracker. */
   progress: number;
   cartPending: boolean;
+  /** Whether the focused share/preview view is open. */
+  shareOpen: boolean;
   /** Transient error toast; `id` changes on each trigger to replay the animation. */
   error: { msg: string; id: number } | null;
 
@@ -52,6 +54,8 @@ interface ConfiguratorState {
   toggleArrange: () => void;
   addToCart: () => Promise<void>;
   saveDesign: () => void;
+  openShare: () => void;
+  closeShare: () => void;
 }
 
 export const useStore = create<ConfiguratorState>((set, get) => ({
@@ -66,6 +70,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   wristSizeCm: null,
   progress: 0,
   cartPending: false,
+  shareOpen: false,
   error: null,
 
   attachEngine: (engine) => set({ engine }),
@@ -107,6 +112,9 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   setWristSize: (cm) => set({ wristSizeCm: cm }),
 
   toggleArrange: () => get().engine?.toggleArrange(),
+
+  openShare: () => set({ shareOpen: true }),
+  closeShare: () => set({ shareOpen: false }),
 
   addToCart: async () => {
     const { items, options, wristSizeCm } = get();

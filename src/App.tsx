@@ -5,6 +5,7 @@ import { Header } from './components/Header';
 import { Studio } from './components/Studio';
 import { Sidebar } from './components/Sidebar';
 import { ErrorToast } from './components/ErrorToast';
+import { ShareView } from './components/ShareView';
 
 export interface AppProps {
   options?: ConfiguratorOptions;
@@ -26,6 +27,7 @@ export function App({ options = {} }: AppProps) {
         <Studio />
         <Sidebar />
       </div>
+      <ShareView />
     </div>
   );
 }
