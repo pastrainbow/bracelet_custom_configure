@@ -3,6 +3,7 @@ import { useStore } from '@/store/store';
 import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
 import { Button } from './ui/Button';
+import { cn } from './ui/cn';
 
 /**
  * The left half of the configurator: the physics bowl, the arrange button, the
@@ -19,6 +20,7 @@ export function Studio() {
   const mode = useStore((s) => s.mode);
   const count = useStore((s) => s.items.length);
   const toggleArrange = useStore((s) => s.toggleArrange);
+  const shareOpen = useStore((s) => s.shareOpen);
   const isBracelet = mode !== 'free';
 
   return (
@@ -26,10 +28,18 @@ export function Studio() {
       {/* Overlay spans the entire column so dragged beads can render anywhere. */}
       <canvas
         ref={overlayRef}
-        className="pointer-events-none absolute inset-0 z-20 h-full w-full"
+        className={cn(
+          'pointer-events-none absolute inset-0 z-20 h-full w-full transition-opacity duration-300',
+          shareOpen && 'opacity-0',
+        )}
       />
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center max-[639px]:min-h-0 max-[639px]:flex-none max-[639px]:flex-col max-[639px]:gap-2.5 max-[639px]:pb-2">
+      <div
+        className={cn(
+          'relative flex min-h-0 flex-1 items-center justify-center transition-all duration-300 max-[639px]:min-h-0 max-[639px]:flex-none max-[639px]:flex-col max-[639px]:gap-2.5 max-[639px]:pb-2',
+          shareOpen && 'scale-90 opacity-0',
+        )}
+      >
         <div
           data-canvas-wrap
           className="relative flex items-center justify-center max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[280px] max-[639px]:w-full"
@@ -50,11 +60,23 @@ export function Studio() {
         </div>
       </div>
 
-      <p className="mt-1.5 text-center text-[11px] text-muted opacity-75">
+      <p
+        className={cn(
+          'mt-1.5 text-center text-[11px] text-muted transition-opacity duration-300',
+          shareOpen ? 'opacity-0' : 'opacity-75',
+        )}
+      >
         Right-click or hold a bead to change its size
       </p>
 
-      <BeadPicker />
+      <div
+        className={cn(
+          'transition-all duration-300',
+          shareOpen && 'pointer-events-none translate-y-full opacity-0',
+        )}
+      >
+        <BeadPicker />
+      </div>
     </div>
   );
 }

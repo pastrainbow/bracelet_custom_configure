@@ -1,29 +1,23 @@
 import { useState } from 'react';
+import { useStore } from '@/store/store';
 import { cn } from './ui/cn';
+import { LogoMark } from './ui/LogoMark';
 
 const NAV = ['Design', 'Inspiration', 'Plans', 'My Orders'];
 
-function LogoMark() {
-  return (
-    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent">
-      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] fill-white">
-        <circle cx="12" cy="12" r="5" />
-        <circle cx="12" cy="4" r="2" />
-        <circle cx="12" cy="20" r="2" />
-        <circle cx="4" cy="12" r="2" />
-        <circle cx="20" cy="12" r="2" />
-      </svg>
-    </div>
-  );
-}
-
 export function Header({ wristHint = 'Wrist size: 15.5 – 16.5 cm' }: { wristHint?: string }) {
   const [active, setActive] = useState('Design');
+  const shareOpen = useStore((s) => s.shareOpen);
 
   return (
-    <header className="z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-surface px-7 max-[639px]:h-12 max-[639px]:px-4">
+    <header
+      className={cn(
+        'z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-surface px-7 transition-all duration-300 max-[639px]:h-12 max-[639px]:px-4',
+        shareOpen && 'pointer-events-none -translate-y-2 opacity-0',
+      )}
+    >
       <div className="flex items-center gap-2 text-[15px] font-bold tracking-wide">
-        <LogoMark />
+        <LogoMark className="h-8 w-8" />
         <div>
           <div>Stone Studio</div>
           <div className="text-[10px] font-normal uppercase tracking-[0.08em] text-muted">
