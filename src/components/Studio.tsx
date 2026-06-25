@@ -66,7 +66,7 @@ export function Studio() {
           shareOpen ? 'opacity-0' : 'opacity-75',
         )}
       >
-        Right-click or hold a bead to change its size
+        Tap on a bead to change its size
       </p>
 
       <div
