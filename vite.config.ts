@@ -13,7 +13,7 @@ export default defineConfig(({ command, mode }) => {
   return {
     // Relative base so the built SPA works from any sub-path (e.g. GitHub
     // Pages project sites at /<repo>/). Dev server stays at '/'.
-    base: command === 'build' && !isWidget ? './' : '/',
+    base: isWidget ? '/' : (process.env.VITE_BASE_PATH ?? './'),
     plugins: [react()],
     resolve: {
       alias: { '@': resolve(__dirname, 'src') },
