@@ -46,6 +46,22 @@ export function ShareView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [shareOpen, closeShare]);
 
+  // Lock page scroll while open so the tall builder page can't scroll behind the
+  // view (which on mobile makes the fixed layer drift with the address bar).
+  useEffect(() => {
+    if (!shareOpen) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [shareOpen]);
+
   const handleShare = async () => {
     if (!engine || sharing) return;
     setSharing(true);
@@ -95,15 +111,17 @@ export function ShareView() {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-[1000] bg-bg transition-opacity duration-300',
+        'fixed inset-x-0 top-0 z-[1000] flex h-[100dvh] items-center justify-center bg-bg transition-opacity duration-300',
         shareOpen ? 'opacity-100' : 'pointer-events-none opacity-0',
       )}
     >
       {/* Brand — top-left */}
-      <div className="absolute left-6 top-6 max-[639px]:left-4 max-[639px]:top-4">
+      <div className="absolute left-5 top-5 max-[639px]:left-4 max-[639px]:top-4">
         <div className="flex items-center gap-2.5">
-          <LogoMark className="h-9 w-9" />
-          <span className="text-xl font-bold tracking-wide text-ink">{brandName}</span>
+          <LogoMark className="h-9 w-9 max-[639px]:h-8 max-[639px]:w-8" />
+          <span className="text-xl font-bold tracking-wide text-ink max-[639px]:text-lg">
+            {brandName}
+          </span>
         </div>
         <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">
           {tagline}
@@ -124,19 +142,19 @@ export function ShareView() {
         <button
           onClick={closeShare}
           aria-label="Close preview"
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-surface text-ink shadow-panel transition-colors hover:bg-white"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-surface text-ink shadow-panel transition-colors hover:bg-white"
         >
           <X size={18} />
         </button>
       </div>
 
-      {/* Bracelet — zooms into the centre of the screen */}
+      {/* Bracelet — vertically + horizontally centred in the viewport, zooms in */}
       <canvas
         ref={canvasRef}
         width={VIEW}
         height={VIEW}
         className={cn(
-          'absolute left-1/2 top-1/2 h-[68vmin] w-[68vmin] max-h-[560px] max-w-[560px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-300 ease-out',
+          'h-auto w-auto max-h-[min(90dvh,560px)] max-w-[min(90vw,560px)] transition-transform duration-300 ease-out',
           shareOpen ? 'scale-100' : 'scale-90',
         )}
       />
