@@ -56,6 +56,8 @@ export const MAX_BRACELET_LENGTH_CM = 28;
 // Glass is hard, dense and fairly elastic: beads drop with weight, click off
 // one another with a moderate-high bounce, roll easily, and settle firmly.
 export const PHYSICS = {
+  /* Physics speed */
+  speedMultiplier: 2.0,
   gravity: 1.0,
   /** Coefficient of restitution. Polished glass spheres are quite bouncy
    *  (real glass marbles sit around 0.5–0.7); 0.55 reads as a lively click

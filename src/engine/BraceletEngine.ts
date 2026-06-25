@@ -538,7 +538,7 @@ export class BraceletEngine {
     // Real elapsed time since the last frame, clamped so a long stall (e.g. the
     // tab was backgrounded) doesn't trigger a huge catch-up.
     if (this.lastTime === 0) this.lastTime = now;
-    const dt = Math.min(now - this.lastTime, MAX_FRAME_MS);
+    const dt = Math.min(now - this.lastTime, MAX_FRAME_MS) * PHYSICS.speedMultiplier;
     this.lastTime = now;
     this.frameDt = dt;
 
