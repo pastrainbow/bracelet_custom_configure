@@ -11,7 +11,6 @@ import {
   CANVAS_MIN,
   DEFAULT_BEAD_SIZE,
   HIT_SLOP,
-  LONG_PRESS_MS,
   MAX_DPR,
   PHYSICS,
   REFERENCE_CANVAS,
@@ -235,6 +234,11 @@ export class BraceletEngine {
     Matter.World.remove(this.pw.world, this.walls);
     this.walls = buildCircularWalls(this.canvasSize / 2, this.canvasSize / 2, this.bowlRadius);
     Matter.World.add(this.pw.world, this.walls);
+
+    // The ring radius / fit scale are in canvas pixels, so recompute them for the
+    // new size — otherwise the bracelet renders with a stale layout until the
+    // next change (too big and out of the bowl, or too small and overlapping).
+    this.layoutRing();
   }
 
   /** Bead/accessory radius (px) for a given diameter, scaled to the canvas. */
@@ -857,7 +861,6 @@ export class BraceletEngine {
     this.canvas.addEventListener('pointerup', this.onPointerUp);
     this.canvas.addEventListener('pointercancel', this.onPointerUp);
     this.canvas.addEventListener('pointerleave', this.onPointerLeave);
-    this.canvas.addEventListener('contextmenu', this.onContextMenu);
     this.overlay.addEventListener('pointermove', this.onWheelMove);
     this.overlay.addEventListener('pointerdown', this.onWheelDown);
     window.addEventListener('keydown', this.onKeyDown);
@@ -869,7 +872,6 @@ export class BraceletEngine {
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerUp);
     this.canvas.removeEventListener('pointerleave', this.onPointerLeave);
-    this.canvas.removeEventListener('contextmenu', this.onContextMenu);
     this.overlay.removeEventListener('pointermove', this.onWheelMove);
     this.overlay.removeEventListener('pointerdown', this.onWheelDown);
     window.removeEventListener('keydown', this.onKeyDown);
@@ -911,15 +913,22 @@ export class BraceletEngine {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (this.wheel.open) return;
+    if (this.wheel.open) {
+      this.updatePointer(e);
+
+      const hit = this.hitTest(true);
+
+      if (!hit || hit.id !== this.wheel.itemId) {
+        this.closeWheel();
+      }
+
+      return;
+    }
     // Ignore secondary buttons — right-click is handled by `contextmenu`.
     if (e.button !== 0) return;
     this.updatePointer(e);
     this.pointer.inCanvas = true;
     this.canvas.setPointerCapture(e.pointerId);
-
-    // Long-press opens the size wheel on touch / pen.
-    if (e.pointerType !== 'mouse') this.startLongPress();
 
     const hit = this.hitTest();
 
@@ -969,8 +978,6 @@ export class BraceletEngine {
     this.updatePointer(e);
     this.pointer.inCanvas = true;
 
-    if (this.drag && this.movedFarEnough()) this.cancelLongPress();
-
     if (!this.drag) return;
     const cx = this.center;
     const cy = this.center;
@@ -1011,7 +1018,6 @@ export class BraceletEngine {
   }
 
   private onPointerUp = (e: PointerEvent): void => {
-    this.cancelLongPress();
     this.updatePointer(e);
     if (this.canvas.hasPointerCapture(e.pointerId)) this.canvas.releasePointerCapture(e.pointerId);
 
@@ -1021,12 +1027,19 @@ export class BraceletEngine {
 
     const wasTap = Math.hypot(this.pointer.x - drag.downX, this.pointer.y - drag.downY) < TAP_THRESHOLD;
 
-    if (drag.kind === 'free' && drag.itemId) {
+    if (drag.itemId) {
       const item = this.items.find((it) => it.id === drag.itemId);
-      if (item) {
+
+      if (item && wasTap && !isAccessory(item.def)) {
+        this.openWheel(item);
+      }
+
+      if (item && drag.kind === 'free') {
+
         if (wasTap) {
           Matter.Body.setStatic(item.body, false);
           Matter.Body.setVelocity(item.body, { x: 0, y: 0 });
+
         } else if (this.pointerOutsideBowl()) {
           this.removeItem(item.id);
         } else {
@@ -1034,9 +1047,10 @@ export class BraceletEngine {
           Matter.Body.setVelocity(item.body, { x: (Math.random() - 0.5) * 2, y: 8 });
           Matter.Body.setAngularVelocity(item.body, (Math.random() - 0.5) * 0.3);
         }
+      
+      } else if (drag.kind === 'bracelet-bead') {
+        if (!wasTap && this.pointerOutsideBowl()) this.removeItem(drag.itemId);
       }
-    } else if (drag.kind === 'bracelet-bead' && drag.itemId) {
-      if (!wasTap && this.pointerOutsideBowl()) this.removeItem(drag.itemId);
     }
 
     this.canvas.style.cursor = this.mode === 'bracelet' ? 'grab' : 'none';
@@ -1046,49 +1060,7 @@ export class BraceletEngine {
     this.pointer.inCanvas = false;
   };
 
-  private movedFarEnough(): boolean {
-    if (!this.drag) return false;
-    return Math.hypot(this.pointer.x - this.drag.downX, this.pointer.y - this.drag.downY) > TAP_THRESHOLD;
-  }
-
   // ── size wheel ───────────────────────────────────────────────────────────────
-
-  private onContextMenu = (e: MouseEvent): void => {
-    e.preventDefault();
-    if (this.items.length === 0) return;
-    const rect = this.canvas.getBoundingClientRect();
-    const scale = this.canvasSize / rect.width;
-    this.pointer.x = (e.clientX - rect.left) * scale;
-    this.pointer.y = (e.clientY - rect.top) * scale;
-    const hit = this.hitTest(true);
-    if (hit) this.openWheel(hit);
-  };
-
-  private startLongPress(): void {
-    this.cancelLongPress();
-    this.longPressTimer = window.setTimeout(() => {
-      this.longPressTimer = null;
-      const hit = this.hitTest(true);
-      if (!hit) return;
-      // Abandon any in-progress drag in favour of the wheel.
-      if (this.drag?.kind === 'free' && this.drag.itemId) {
-        const item = this.items.find((it) => it.id === this.drag!.itemId);
-        if (item) {
-          Matter.Body.setStatic(item.body, false);
-          Matter.Body.setVelocity(item.body, { x: 0, y: 0 });
-        }
-      }
-      this.drag = null;
-      this.openWheel(hit);
-    }, LONG_PRESS_MS);
-  }
-
-  private cancelLongPress(): void {
-    if (this.longPressTimer) {
-      window.clearTimeout(this.longPressTimer);
-      this.longPressTimer = null;
-    }
-  }
 
   private openWheel(item: LiveItem): void {
     // Convert the bead's canvas position into overlay-canvas coordinates.
