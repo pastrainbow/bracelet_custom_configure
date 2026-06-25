@@ -44,9 +44,6 @@ export const MAX_DPR = 2;
 export const BOWL_RADIUS_RATIO = 0.44;
 /** Bracelet ring radius as a fraction of the bowl radius. */
 export const BRACELET_RADIUS_RATIO = 0.72;
-/** Fraction of the available spacing beads occupy when auto-scaled to fit the
- *  ring (slightly < 1 leaves a hair of gap so beads don't visually merge). */
-export const BRACELET_PACK_RATIO = 0.98;
 /** Hard cap on estimated bracelet length (cm). Adding a bead that would push
  *  the estimate over this is rejected. Comfortably covers the largest wrist
  *  (25 cm) plus a loose fit; tune to your product's longest offered bracelet. */

@@ -5,7 +5,6 @@ import {
   ARRANGE_SPEED,
   BEAD_SIZES,
   BOWL_RADIUS_RATIO,
-  BRACELET_PACK_RATIO,
   BRACELET_RADIUS_RATIO,
   MAX_BRACELET_LENGTH_CM,
   CANVAS_MAX,
@@ -54,6 +53,10 @@ const PHYSICS_STEP_MS = 1000 / 60;
 const MAX_FRAME_MS = 1000 / 15;
 /** Safety cap on substeps per frame to avoid a spiral of death on slow devices. */
 const MAX_SUBSTEPS = 5;
+
+/** Smallest the bracelet ring may shrink to, as a fraction of its max radius —
+ *  so a handful of beads still reads as a ring rather than a tiny cluster. */
+const MIN_RING_RATIO = 0.3;
 
 /** Internal live item — the serializable parts plus the Matter body & ring data. */
 interface LiveItem {
@@ -125,6 +128,8 @@ export class BraceletEngine {
   private beadScale = 360 / REFERENCE_CANVAS;
   /** Extra ≤1 multiplier that shrinks beads so a crowded ring never overlaps. */
   private fitScale = 1;
+  /** Current bracelet ring radius (px); sized to the beads by layoutRing. */
+  private ringRadius = 160;
   /** fitScale the beads were already shown at when the arrange animation began,
    *  so they ease from their current size (not a jump to full size) to the new fit. */
   private arrangeStartScale = 1;
@@ -276,7 +281,8 @@ export class BraceletEngine {
     return this.canvasSize / 2;
   }
 
-  private get braceletRadius(): number {
+  /** Largest the bracelet ring may grow (it shrinks toward the beads). */
+  private get maxRingRadius(): number {
     return this.bowlRadius * BRACELET_RADIUS_RATIO;
   }
 
@@ -287,22 +293,82 @@ export class BraceletEngine {
   }
 
   /**
-   * Largest scale ≤ 1 that keeps evenly-spaced beads from overlapping on the
-   * ring. Adjacent centres are `2·R·sin(π/n)` apart and must clear the summed
-   * radii; scale down until the tightest pair fits (with a small gap). The ratio
-   * is canvas-independent, so the fit is identical on every screen size.
+   * Lay the beads out on the ring with spacing proportional to their sizes, so
+   * neighbours just touch (no gaps) regardless of size — a big bead simply takes
+   * a wider arc than a small one. Sets each bead's `targetAngle` and the global
+   * `fitScale` together, since they're coupled.
+   *
+   * For touching beads the angle between adjacent centres is
+   * `2·asin((rᵢ+rⱼ)/2R)`. We scale all radii by `s ≤ 1` until those angles sum
+   * to a full turn (so a crowded ring fills exactly with no gaps); if even at
+   * full size the beads don't fill the ring, the leftover is spread evenly so a
+   * sparse ring still looks balanced. The geometry is canvas-independent, so the
+   * layout is identical on every screen size.
    */
-  private computeFitScale(): number {
+  private layoutRing(): void {
     const n = this.items.length;
-    if (n < 2) return 1;
-    const minCentreDist = 2 * this.braceletRadius * Math.sin(Math.PI / n);
-    let maxAdjacentSum = 0;
-    for (let i = 0; i < n; i++) {
-      const sum = this.beadRadius(this.items[i].size) + this.beadRadius(this.items[(i + 1) % n].size);
-      if (sum > maxAdjacentSum) maxAdjacentSum = sum;
+    if (n === 0) {
+      this.fitScale = 1;
+      this.ringRadius = this.maxRingRadius;
+      return;
     }
-    if (maxAdjacentSum <= 0) return 1;
-    return Math.min(1, (minCentreDist / maxAdjacentSum) * BRACELET_PACK_RATIO);
+
+    const FULL = Math.PI * 2;
+    const maxR = this.maxRingRadius;
+    const minR = maxR * MIN_RING_RATIO;
+    const radii = this.items.map((it) => this.beadRadius(it.size));
+    const pairSum = (i: number) => radii[i] + radii[(i + 1) % n];
+    // Angle between adjacent touching beads of scaled radii on a ring of radius R.
+    const gap = (i: number, R: number, s: number) =>
+      2 * Math.asin(Math.min(1, (s * pairSum(i)) / (2 * R)));
+    const totalAngle = (R: number, s: number) => {
+      let sum = 0;
+      for (let i = 0; i < n; i++) sum += gap(i, R, s);
+      return sum;
+    };
+
+    let R: number;
+    let s: number;
+    if (totalAngle(maxR, 1) >= FULL) {
+      // Crowded: ring is at its max and full-size beads overflow — shrink beads.
+      R = maxR;
+      let lo = 0;
+      let hi = 1;
+      for (let iter = 0; iter < 40; iter++) {
+        const mid = (lo + hi) / 2;
+        if (totalAngle(maxR, mid) > FULL) hi = mid;
+        else lo = mid;
+      }
+      s = lo;
+    } else {
+      // Beads fit with room — shrink the *ring* toward the beads so they touch
+      // (a real bracelet is only as big as its beads), down to a sensible min.
+      s = 1;
+      if (totalAngle(minR, 1) <= FULL) {
+        R = minR; // very few beads — can't fill even the smallest ring
+      } else {
+        let lo = minR;
+        let hi = maxR;
+        for (let iter = 0; iter < 40; iter++) {
+          const mid = (lo + hi) / 2;
+          if (totalAngle(mid, 1) > FULL) lo = mid;
+          else hi = mid;
+        }
+        R = hi;
+      }
+    }
+
+    this.ringRadius = R;
+    this.fitScale = s;
+
+    // Spread any leftover evenly (≈0 once the ring is packed and beads touch).
+    const extra = Math.max(0, (FULL - totalAngle(R, s)) / n);
+
+    let angle = -Math.PI / 2; // start at the top
+    for (let i = 0; i < n; i++) {
+      this.items[i].targetAngle = angle;
+      angle += gap(i, R, s) + extra;
+    }
   }
 
   /** Estimated strung length (cm) for a set of bead diameters (mm). */
@@ -313,8 +379,8 @@ export class BraceletEngine {
   // ── store sync ─────────────────────────────────────────────────────────────
 
   private emit(): void {
-    // Keep the auto-fit scale current with the latest arrangement.
-    this.fitScale = this.computeFitScale();
+    // Keep the ring layout (bead angles + fit scale) current with the arrangement.
+    this.layoutRing();
     this.onChange(this.getSummary());
   }
 
@@ -354,11 +420,8 @@ export class BraceletEngine {
     this.items.splice(idx, 1);
     if (this.selectedId === id) this.selectedId = null;
 
-    if (this.mode !== 'free') {
-      if (this.items.length === 0) this.scatter();
-      else this.recomputeTargetAngles();
-    }
-    this.emit();
+    if (this.mode !== 'free' && this.items.length === 0) this.scatter();
+    this.emit(); // re-lays out the ring via layoutRing
   }
 
   /**
@@ -469,12 +532,11 @@ export class BraceletEngine {
       startY: c,
     });
 
-    this.recomputeTargetAngles();
     this.drag = null;
     this.braceletAngle = 0;
     this.mode = 'arranging';
     this.arrangeProgress = 0;
-    this.emit();
+    this.emit(); // computes targetAngles + fitScale via layoutRing
   }
 
   // ── arrange / scatter ────────────────────────────────────────────────────────
@@ -482,24 +544,15 @@ export class BraceletEngine {
   private startArranging(): void {
     // Beads come from the dish at full size, so ease from 1 → fitted size.
     this.arrangeStartScale = 1;
-    const n = this.items.length;
-    this.items.forEach((item, i) => {
+    for (const item of this.items) {
       item.startX = item.body.position.x;
       item.startY = item.body.position.y;
-      item.targetAngle = (i / n) * Math.PI * 2 - Math.PI / 2;
       Matter.Body.setStatic(item.body, true);
-    });
+    }
     this.mode = 'arranging';
     this.arrangeProgress = 0;
     this.canvas.style.cursor = 'grab';
-    this.emit();
-  }
-
-  private recomputeTargetAngles(): void {
-    const n = this.items.length;
-    this.items.forEach((item, i) => {
-      item.targetAngle = (i / n) * Math.PI * 2 - Math.PI / 2;
-    });
+    this.emit(); // computes targetAngles + fitScale via layoutRing
   }
 
   private scatter(): void {
@@ -656,7 +709,7 @@ export class BraceletEngine {
       this.arrangeProgress + ARRANGE_SPEED * (this.frameDt / PHYSICS_STEP_MS),
     );
     const t = easeInOut(this.arrangeProgress);
-    const br = this.braceletRadius;
+    const br = this.ringRadius;
 
     const scale = this.arrangeStartScale + (this.fitScale - this.arrangeStartScale) * t;
     for (const item of this.items) {
@@ -680,7 +733,7 @@ export class BraceletEngine {
 
   private renderBracelet(cx: number, cy: number): void {
     const { ctx } = this;
-    const br = this.braceletRadius;
+    const br = this.ringRadius;
     const draggingId = this.drag?.kind === 'bracelet-bead' ? this.drag.itemId : null;
 
     drawBraceletThread(ctx, cx, cy, br);
@@ -816,8 +869,8 @@ export class BraceletEngine {
       let by: number;
       if (this.mode === 'bracelet') {
         const a = item.targetAngle + this.braceletAngle;
-        bx = cx + Math.cos(a) * this.braceletRadius;
-        by = cy + Math.sin(a) * this.braceletRadius;
+        bx = cx + Math.cos(a) * this.ringRadius;
+        by = cy + Math.sin(a) * this.ringRadius;
       } else {
         bx = item.body.position.x;
         by = item.body.position.y;
@@ -907,21 +960,25 @@ export class BraceletEngine {
   private handleReorder(): void {
     if (!this.drag || this.pointerOutsideBowl()) return;
     const n = this.items.length;
-    const slot = (Math.PI * 2) / n;
     const dragIdx = this.items.findIndex((it) => it.id === this.drag!.itemId);
     if (dragIdx < 0) return;
 
+    const cur = this.braceletAngle + this.items[dragIdx].targetAngle;
     const mouseAngle = Math.atan2(this.pointer.y - this.center, this.pointer.x - this.center);
-    const signed = shortestAngle(mouseAngle - (this.braceletAngle + this.items[dragIdx].targetAngle));
+    const signed = shortestAngle(mouseAngle - cur);
+
+    // Swap once the bead is dragged past the midpoint toward a neighbour. Gaps
+    // are size-proportional, so use the actual angle to each neighbour.
+    const toNext = shortestAngle(this.braceletAngle + this.items[(dragIdx + 1) % n].targetAngle - cur);
+    const toPrev = shortestAngle(this.braceletAngle + this.items[(dragIdx - 1 + n) % n].targetAngle - cur);
 
     let target = dragIdx;
-    if (signed > slot / 2) target = (dragIdx + 1) % n;
-    else if (signed < -slot / 2) target = (dragIdx - 1 + n) % n;
+    if (signed > 0 && signed > toNext / 2) target = (dragIdx + 1) % n;
+    else if (signed < 0 && signed < toPrev / 2) target = (dragIdx - 1 + n) % n;
 
     if (target !== dragIdx) {
       [this.items[dragIdx], this.items[target]] = [this.items[target], this.items[dragIdx]];
-      this.recomputeTargetAngles();
-      this.emit();
+      this.emit(); // re-lays out the ring via layoutRing
     }
   }
 
@@ -1014,8 +1071,8 @@ export class BraceletEngine {
     let by: number;
     if (this.mode === 'bracelet') {
       const a = item.targetAngle + this.braceletAngle;
-      bx = this.center + Math.cos(a) * this.braceletRadius;
-      by = this.center + Math.sin(a) * this.braceletRadius;
+      bx = this.center + Math.cos(a) * this.ringRadius;
+      by = this.center + Math.sin(a) * this.ringRadius;
     } else {
       bx = item.body.position.x;
       by = item.body.position.y;
