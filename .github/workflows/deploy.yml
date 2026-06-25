@@ -2,7 +2,10 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - exp-a
+      - exp-b
   workflow_dispatch:
 
 # Allow the workflow to publish to Pages.
