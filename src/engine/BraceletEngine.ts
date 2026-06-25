@@ -234,6 +234,11 @@ export class BraceletEngine {
     Matter.World.remove(this.pw.world, this.walls);
     this.walls = buildCircularWalls(this.canvasSize / 2, this.canvasSize / 2, this.bowlRadius);
     Matter.World.add(this.pw.world, this.walls);
+
+    // The ring radius / fit scale are in canvas pixels, so recompute them for the
+    // new size — otherwise the bracelet renders with a stale layout until the
+    // next change (too big and out of the bowl, or too small and overlapping).
+    this.layoutRing();
   }
 
   /** Bead/accessory radius (px) for a given diameter, scaled to the canvas. */
