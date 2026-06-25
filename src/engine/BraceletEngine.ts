@@ -911,7 +911,17 @@ export class BraceletEngine {
   }
 
   private onPointerDown = (e: PointerEvent): void => {
-    if (this.wheel.open) return;
+    if (this.wheel.open) {
+      this.updatePointer(e);
+
+      const hit = this.hitTest(true);
+
+      if (!hit || hit.id !== this.wheel.itemId) {
+        this.closeWheel();
+      }
+
+      return;
+    }
     // Ignore secondary buttons — right-click is handled by `contextmenu`.
     if (e.button !== 0) return;
     this.updatePointer(e);
@@ -1021,12 +1031,19 @@ export class BraceletEngine {
 
     const wasTap = Math.hypot(this.pointer.x - drag.downX, this.pointer.y - drag.downY) < TAP_THRESHOLD;
 
-    if (drag.kind === 'free' && drag.itemId) {
+    if (drag.itemId) {
       const item = this.items.find((it) => it.id === drag.itemId);
-      if (item) {
+
+      if (item && wasTap && !isAccessory(item.def)) {
+        this.openWheel(item);
+      }
+
+      if (item && drag.kind === 'free') {
+
         if (wasTap) {
           Matter.Body.setStatic(item.body, false);
           Matter.Body.setVelocity(item.body, { x: 0, y: 0 });
+
         } else if (this.pointerOutsideBowl()) {
           this.removeItem(item.id);
         } else {
@@ -1034,9 +1051,10 @@ export class BraceletEngine {
           Matter.Body.setVelocity(item.body, { x: (Math.random() - 0.5) * 2, y: 8 });
           Matter.Body.setAngularVelocity(item.body, (Math.random() - 0.5) * 0.3);
         }
+      
+      } else if (drag.kind === 'bracelet-bead') {
+        if (!wasTap && this.pointerOutsideBowl()) this.removeItem(drag.itemId);
       }
-    } else if (drag.kind === 'bracelet-bead' && drag.itemId) {
-      if (!wasTap && this.pointerOutsideBowl()) this.removeItem(drag.itemId);
     }
 
     this.canvas.style.cursor = this.mode === 'bracelet' ? 'grab' : 'none';
