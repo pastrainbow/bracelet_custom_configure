@@ -2,14 +2,14 @@ import { useRef } from 'react';
 import { useStore } from '@/store/store';
 import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
-import { PreviewSettings } from './PreviewSettings';
+import { BackgroundDropdown } from './BackgroundDropdown';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
 /**
  * The left half of the configurator: the physics bowl, the arrange button, the
- * hint line, the bead picker and preview settings. Owns the engine (via
- * useBraceletEngine) and the overlay canvas that spans the whole column.
+ * hint line and the bead picker. Owns the engine (via useBraceletEngine) and
+ * the overlay canvas that spans the whole column.
  */
 export function Studio() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -27,15 +27,15 @@ export function Studio() {
   return (
     // On mobile the panel is `display:contents` so its children join the page's
     // flex column alongside the sidebar — that makes the sticky bowl region (below)
-    // stay pinned while the bead picker, preview settings AND sidebar scroll past
+    // stay pinned while the bead picker AND sidebar scroll past
     // it. On desktop it's a normal flex column.
     <div
       ref={containerRef}
       className="relative flex flex-col overflow-hidden max-[639px]:contents"
     >
       {/* On mobile this sticks to the top of the viewport so the bowl stays in
-          view while the bead picker / preview settings / sidebar scroll beneath
-          it (bg + z-index so that scrolling content slides under, not over). */}
+          view while the bead picker / sidebar scroll beneath it (bg + z-index so
+          that scrolling content slides under, not over). */}
       <div
         className={cn(
           'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:sticky max-[639px]:top-12 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg max-[639px]:pb-2 min-[640px]:min-h-[max(44vh,300px)]',
@@ -52,6 +52,10 @@ export function Studio() {
             shareOpen && 'opacity-0',
           )}
         />
+
+        {/* Overlay control pinned to the bowl's top-right for choosing the bowl
+            background (replaces the old Preview Settings row). */}
+        <BackgroundDropdown />
 
         {/* The box the bowl must fit inside. The engine sizes the canvas to this
             area (not the whole column), so the bowl scales down to fit instead of
@@ -103,7 +107,6 @@ export function Studio() {
         )}
       >
         <BeadPicker />
-        <PreviewSettings />
       </div>
     </div>
   );
