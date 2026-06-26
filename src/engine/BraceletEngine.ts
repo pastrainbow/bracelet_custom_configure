@@ -492,6 +492,22 @@ export class BraceletEngine {
     return true;
   }
 
+  /** Set the size used for newly added beads, without touching existing ones. */
+  setDefaultBeadSize(mm: number): void {
+    this.beadSize = mm;
+  }
+
+  /** Remove every bead and return to the empty dish. */
+  clearAll(): void {
+    for (const item of this.items) Matter.World.remove(this.pw.world, item.body);
+    this.items = [];
+    this.selectedId = null;
+    this.mode = 'free';
+    this.braceletAngle = 0;
+    this.canvas.style.cursor = 'none';
+    this.emit();
+  }
+
   setTexture(id: TextureId): void {
     this.texture = id;
   }

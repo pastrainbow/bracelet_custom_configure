@@ -1,8 +1,6 @@
 import { useStore } from '@/store/store';
 import { OrderSummary } from './sidebar/OrderSummary';
 import { BraceletInfo } from './sidebar/BraceletInfo';
-import { SizeSelector } from './sidebar/SizeSelector';
-import { TextureSelector } from './sidebar/TextureSelector';
 import { BeadList } from './sidebar/BeadList';
 import { Steps } from './sidebar/Steps';
 import { CtaButtons } from './sidebar/CtaButtons';
@@ -24,8 +22,6 @@ export function Sidebar() {
       <OrderSummary />
       <Divider />
       <BraceletInfo />
-      <SizeSelector />
-      <TextureSelector />
       <Divider />
       <BeadList />
       <Divider />

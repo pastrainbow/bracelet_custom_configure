@@ -1,17 +1,51 @@
 import { useMemo, useState } from 'react';
 import type { SuperCategory } from '@/types';
+import { BEAD_SIZES } from '@/config/constants';
 import { CATALOGUE, SUPERCATS } from '@/data/catalogue';
+import { formatPrice, priceFor } from '@/data/pricing';
 import { useStore } from '@/store/store';
 import { ItemThumb } from './ItemThumb';
 import { PillTabs } from './ui/PillTabs';
+import { cn } from './ui/cn';
 
 const SUPER_TABS = [
   { value: 'beads', label: 'Beads' },
   { value: 'accessories', label: 'Accessories' },
 ];
 
+/** Compact size picker — sets the size of beads added from now on. */
+function AddSizeSelector() {
+  const beadSize = useStore((s) => s.beadSize);
+  const setBeadSize = useStore((s) => s.setBeadSize);
+
+  return (
+    <div className="mt-2.5 flex items-center gap-2 border-t border-border pt-2.5">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+        New bead size
+      </span>
+      <div className="flex gap-1">
+        {BEAD_SIZES.map((mm) => (
+          <button
+            key={mm}
+            onClick={() => setBeadSize(mm)}
+            className={cn(
+              'rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors',
+              beadSize === mm
+                ? 'border-accent bg-accent text-white'
+                : 'border-border text-muted hover:border-gold hover:text-gold',
+            )}
+          >
+            {mm}mm
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function BeadPicker() {
   const addItem = useStore((s) => s.addItem);
+  const beadSize = useStore((s) => s.beadSize);
   const [superCat, setSuperCat] = useState<SuperCategory>('beads');
   const [category, setCategory] = useState<string>(SUPERCATS.beads[0].cat);
 
@@ -50,10 +84,12 @@ export function BeadPicker() {
           >
             <ItemThumb def={def} size={46} />
             <div className="text-center text-[11px] font-medium leading-tight text-ink">{def.name}</div>
-            <div className="text-[10px] text-muted">${def.price}</div>
+            <div className="text-[10px] text-muted">{formatPrice(priceFor(def, beadSize))}</div>
           </button>
         ))}
       </div>
+
+      <AddSizeSelector />
     </div>
   );
 }

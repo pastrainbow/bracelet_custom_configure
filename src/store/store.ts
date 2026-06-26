@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { EngineSummary, ItemDef, PlacedItem, StudioMode } from '@/types';
 import { DEFAULT_BEAD_SIZE } from '@/config/constants';
+import { priceFor } from '@/data/pricing';
 import type { TextureId } from '@/data/textures';
 import type { BraceletEngine } from '@/engine/BraceletEngine';
 import {
@@ -27,6 +28,8 @@ interface ConfiguratorState {
   selectedId: string | null;
   beadSize: number;
   texture: TextureId;
+  /** Magnification of the bowl/bracelet preview (1 = fit). */
+  zoom: number;
   /** Shopper's wrist circumference in cm, or null until entered. */
   wristSizeCm: number | null;
   /** Highest completed step (0–3) for the progress tracker. */
@@ -47,9 +50,14 @@ interface ConfiguratorState {
   addItem: (def: ItemDef) => void;
   removeItem: (id: string) => void;
   resizeItem: (id: string, mm: number) => void;
+  clearAll: () => void;
   selectItem: (id: string | null) => void;
+  /** Size for newly-added beads only (does not touch existing beads). */
   setBeadSize: (mm: number) => void;
+  /** Resize every existing bead to the given size. */
+  setAllBeadSize: (mm: number) => void;
   setTexture: (id: TextureId) => void;
+  setZoom: (zoom: number) => void;
   setWristSize: (cm: number | null) => void;
   toggleArrange: () => void;
   addToCart: () => Promise<void>;
@@ -67,6 +75,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   selectedId: null,
   beadSize: DEFAULT_BEAD_SIZE,
   texture: 'default',
+  zoom: 1,
   wristSizeCm: null,
   progress: 0,
   cartPending: false,
@@ -95,11 +104,17 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   addItem: (def) => get().engine?.addItem(def),
   removeItem: (id) => get().engine?.removeItem(id),
   resizeItem: (id, mm) => get().engine?.resizeItem(id, mm),
+  clearAll: () => get().engine?.clearAll(),
   selectItem: (id) => get().engine?.selectItem(id),
 
   setBeadSize: (mm) => {
-    // Only commit the selected size if the engine actually applied it (a size
-    // increase that would overlap beads is rejected).
+    // Only changes the size of beads added from now on; existing beads stay.
+    set({ beadSize: mm });
+    get().engine?.setDefaultBeadSize(mm);
+  },
+
+  setAllBeadSize: (mm) => {
+    // Resize every existing bead; rejected if it would exceed the max length.
     const applied = get().engine?.setBeadSize(mm);
     if (applied !== false) set({ beadSize: mm });
   },
@@ -108,6 +123,8 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
     set({ texture: id });
     get().engine?.setTexture(id);
   },
+
+  setZoom: (zoom) => set({ zoom }),
 
   setWristSize: (cm) => set({ wristSizeCm: cm }),
 
@@ -127,7 +144,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
         defId: it.def.id,
         name: it.def.name,
         size: it.size,
-        price: it.def.price,
+        price: priceFor(it.def, it.size),
       })),
       beadCount: totals.count,
       totalPrice: totals.totalPrice,
@@ -175,7 +192,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
 export function selectTotals(state: Pick<ConfiguratorState, 'items' | 'beadSize'>): DerivedTotals {
   const { items } = state;
   const count = items.length;
-  const totalPrice = items.reduce((sum, it) => sum + it.def.price, 0);
+  const totalPrice = items.reduce((sum, it) => sum + priceFor(it.def, it.size), 0);
   // Approximate strung length: bead diameter + ~0.5mm spacing, in cm.
   const lengthCm = items.reduce((sum, it) => sum + it.size + 0.5, 0) * 0.1;
   return { count, totalPrice, lengthCm: Number(lengthCm.toFixed(1)) };

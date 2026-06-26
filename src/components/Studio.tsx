@@ -2,13 +2,14 @@ import { useRef } from 'react';
 import { useStore } from '@/store/store';
 import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
+import { PreviewSettings } from './PreviewSettings';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
 /**
  * The left half of the configurator: the physics bowl, the arrange button, the
- * hint line, and the bead picker. Owns the engine (via useBraceletEngine) and
- * the overlay canvas that spans the whole column.
+ * hint line, the bead picker and preview settings. Owns the engine (via
+ * useBraceletEngine) and the overlay canvas that spans the whole column.
  */
 export function Studio() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -21,6 +22,7 @@ export function Studio() {
   const count = useStore((s) => s.items.length);
   const toggleArrange = useStore((s) => s.toggleArrange);
   const shareOpen = useStore((s) => s.shareOpen);
+  const zoom = useStore((s) => s.zoom);
   const isBracelet = mode !== 'free';
 
   return (
@@ -42,9 +44,14 @@ export function Studio() {
       >
         <div
           data-canvas-wrap
-          className="relative flex items-center justify-center max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[280px] max-[639px]:w-full"
+          className="relative flex items-center justify-center overflow-hidden max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[280px] max-[639px]:w-full"
         >
-          <canvas ref={physicsRef} className="cursor-none touch-none" />
+          {/* Zoom is applied to a wrapper, not the canvas (the engine sets the
+              canvas width/height imperatively). getBoundingClientRect on the
+              canvas reflects this transform, so pointer hit-testing stays correct. */}
+          <div className="transition-transform duration-200" style={{ transform: `scale(${zoom})` }}>
+            <canvas ref={physicsRef} className="block cursor-none touch-none" />
+          </div>
         </div>
 
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 max-[639px]:static max-[639px]:translate-x-0">
@@ -66,7 +73,7 @@ export function Studio() {
           shareOpen ? 'opacity-0' : 'opacity-75',
         )}
       >
-        Tap on a bead to change its size
+        Click a bead to select it, then resize it from "Your Beads"
       </p>
 
       <div
@@ -76,6 +83,7 @@ export function Studio() {
         )}
       >
         <BeadPicker />
+        <PreviewSettings />
       </div>
     </div>
   );
