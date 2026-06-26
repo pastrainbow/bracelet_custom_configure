@@ -28,16 +28,24 @@ export const BRACELET_EASE_MIN_CM = 1.3;
 export const BRACELET_EASE_MAX_CM = 2.3;
 
 // ── Canvas sizing ──
-export const CANVAS_MIN = 280;
-export const CANVAS_MAX = 420;
+export const CANVAS_MIN = 220;
+/**
+ * Largest the bowl may grow to. Generous so big/tall screens fill their space
+ * with a large bowl instead of leaving a small one marooned in whitespace; the
+ * bowl still only grows when the canvas area is actually that big (it's capped
+ * by the available width/height first). Beads scale up with it — see
+ * REFERENCE_CANVAS.
+ */
+export const CANVAS_MAX = 640;
 /**
  * Canvas size (px) the bead scale is calibrated against. Bead radius is
- * multiplied by `canvasSize / REFERENCE_CANVAS` so a bead keeps a constant
- * proportion to the bowl/ring on every screen (otherwise beads stay a fixed
- * pixel size while the ring shrinks on phones, causing overlap). Using the max
- * canvas keeps large/desktop screens at the original 1:1 bead size.
+ * multiplied by `canvasSize / REFERENCE_CANVAS`, so beads scale together with
+ * the canvas and keep a constant proportion to the bowl/ring on every screen.
+ * Pinned to a fixed value (NOT CANVAS_MAX): the bead↔bowl ratio works out to
+ * `mmToRadius / (REFERENCE_CANVAS × BOWL_RADIUS_RATIO)`, so changing this would
+ * resize every bead relative to the bowl. 420 keeps the original bead sizing.
  */
-export const REFERENCE_CANVAS = CANVAS_MAX;
+export const REFERENCE_CANVAS = 420;
 /**
  * Upper bound on the rendering device-pixel-ratio. High-DPR phones (dpr 3) fill
  * ~2.25× more pixels per frame than dpr 2 for no perceptible gain on a canvas

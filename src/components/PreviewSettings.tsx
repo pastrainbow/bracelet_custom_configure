@@ -30,9 +30,11 @@ function ZoomControl() {
   );
 }
 
-/** Collapsible panel with bowl background + zoom; sits below the bead picker. */
+/** Collapsible panel with bowl background + zoom; sits below the bead picker.
+ *  Collapsed by default so the bowl gets the vertical space (these are secondary
+ *  controls); expanding it scrolls within the capped controls area. */
 export function PreviewSettings() {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="flex-shrink-0 border-t border-border bg-surface">

@@ -197,15 +197,17 @@ export class BraceletEngine {
     if (this.container.offsetWidth === 0 || this.container.offsetHeight === 0) return;
 
     const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    const areaW = this.container.offsetWidth;
-    let available: number;
-    if (isMobile) {
-      const wrap = this.container.querySelector<HTMLElement>('[data-canvas-wrap]');
-      const wrapH = wrap?.offsetHeight ?? areaW;
-      available = Math.min(areaW - 40, wrapH - 40);
-    } else {
-      available = Math.min(areaW - 40, this.container.offsetHeight - 80);
-    }
+    // Size the bowl to the dedicated canvas area, not the whole column. The area
+    // box already excludes the button, hint and bead picker, so the bowl scales
+    // down to fit short screens instead of overflowing onto them. Its height is
+    // set by the flex layout (and clipped via overflow-hidden), independent of
+    // the canvas, so there's no measure→resize feedback loop.
+    const area = this.container.querySelector<HTMLElement>('[data-canvas-area]');
+    const areaW = area?.clientWidth ?? this.container.offsetWidth;
+    const areaH = area?.clientHeight ?? this.container.offsetHeight;
+    // A little inset so the bowl's rim shadow never sits flush against the edges.
+    const inset = isMobile ? 24 : 16;
+    const available = Math.min(areaW, areaH) - inset;
 
     const prevSize = this.canvasSize;
     this.canvasSize = Math.max(CANVAS_MIN, Math.min(CANVAS_MAX, available));

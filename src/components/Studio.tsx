@@ -38,23 +38,28 @@ export function Studio() {
 
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 items-center justify-center transition-all duration-300 max-[639px]:min-h-0 max-[639px]:flex-none max-[639px]:flex-col max-[639px]:gap-2.5 max-[639px]:pb-2',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-all duration-300 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:pb-2 min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
+        {/* The box the bowl must fit inside. The engine sizes the canvas to this
+            area (not the whole column), so the bowl scales down to fit instead of
+            overflowing onto the button, hint and bead picker on short screens. */}
         <div
-          data-canvas-wrap
-          className="relative flex items-center justify-center overflow-hidden max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[280px] max-[639px]:w-full"
+          data-canvas-area
+          className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[260px] max-[639px]:flex-none"
         >
-          {/* Zoom is applied to a wrapper, not the canvas (the engine sets the
-              canvas width/height imperatively). getBoundingClientRect on the
-              canvas reflects this transform, so pointer hit-testing stays correct. */}
-          <div className="transition-transform duration-200" style={{ transform: `scale(${zoom})` }}>
-            <canvas ref={physicsRef} className="block cursor-none touch-none" />
+          <div data-canvas-wrap className="relative flex items-center justify-center overflow-hidden">
+            {/* Zoom is applied to a wrapper, not the canvas (the engine sets the
+                canvas width/height imperatively). getBoundingClientRect on the
+                canvas reflects this transform, so pointer hit-testing stays correct. */}
+            <div className="transition-transform duration-200" style={{ transform: `scale(${zoom})` }}>
+              <canvas ref={physicsRef} className="block cursor-none touch-none" />
+            </div>
           </div>
         </div>
 
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 max-[639px]:static max-[639px]:translate-x-0">
+        <div className="flex-shrink-0">
           <Button
             variant={isBracelet ? 'gold' : 'primary'}
             size="lg"
@@ -76,9 +81,14 @@ export function Studio() {
         Click a bead to select it, then resize it from "Your Beads"
       </p>
 
+      {/* Capped to a fraction of the desktop viewport so the bowl always gets the
+          majority of the vertical space (and grows large on big screens instead
+          of leaving whitespace); the section scrolls internally when its content
+          exceeds the cap, so nothing overlaps the bowl or clips off-screen.
+          Mobile keeps natural flow (the page scrolls). */}
       <div
         className={cn(
-          'transition-all duration-300',
+          'transition-all duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto',
           shareOpen && 'pointer-events-none translate-y-full opacity-0',
         )}
       >
