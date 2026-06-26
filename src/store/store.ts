@@ -16,6 +16,9 @@ interface DerivedTotals {
   lengthCm: number;
 }
 
+/** Which control subsection the mobile tab selector currently shows. */
+export type MobilePanel = 'add' | 'order';
+
 const ERROR_DURATION_MS = 2600;
 let errorTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -35,6 +38,8 @@ interface ConfiguratorState {
   cartPending: boolean;
   /** Whether the focused share/preview view is open. */
   shareOpen: boolean;
+  /** Which control subsection the mobile tab selector shows (mobile only). */
+  mobilePanel: MobilePanel;
   /** Transient error toast; `id` changes on each trigger to replay the animation. */
   error: { msg: string; id: number } | null;
 
@@ -61,6 +66,7 @@ interface ConfiguratorState {
   saveDesign: () => void;
   openShare: () => void;
   closeShare: () => void;
+  setMobilePanel: (panel: MobilePanel) => void;
 }
 
 export const useStore = create<ConfiguratorState>((set, get) => ({
@@ -77,6 +83,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   progress: 0,
   cartPending: false,
   shareOpen: false,
+  mobilePanel: 'add',
   error: null,
 
   attachEngine: (engine) => set({ engine }),
@@ -127,6 +134,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
 
   openShare: () => set({ shareOpen: true }),
   closeShare: () => set({ shareOpen: false }),
+  setMobilePanel: (panel) => set({ mobilePanel: panel }),
 
   addToCart: async () => {
     const { items, options, wristSizeCm } = get();

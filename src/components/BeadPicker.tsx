@@ -62,7 +62,7 @@ export function BeadPicker() {
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:px-4 max-[639px]:pb-3.5">
+    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:border-t-0 max-[639px]:px-4 max-[639px]:pb-3.5">
       <div className="mb-2 border-b border-border pb-2">
         <PillTabs tabs={SUPER_TABS} value={superCat} onValueChange={onSuperChange} variant="solid" />
       </div>

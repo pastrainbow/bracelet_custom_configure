@@ -5,6 +5,7 @@ import { BeadPicker } from './BeadPicker';
 import { BackgroundDropdown } from './BackgroundDropdown';
 import { CanvasActions } from './CanvasActions';
 import { StickyFit } from './StickyFit';
+import { MobilePanelTabs } from './MobilePanelTabs';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
@@ -24,6 +25,7 @@ export function Studio() {
   const count = useStore((s) => s.items.length);
   const toggleArrange = useStore((s) => s.toggleArrange);
   const shareOpen = useStore((s) => s.shareOpen);
+  const mobilePanel = useStore((s) => s.mobilePanel);
   const isBracelet = mode !== 'free';
 
   return (
@@ -40,7 +42,7 @@ export function Studio() {
           that scrolling content slides under, not over). */}
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:sticky max-[639px]:top-12 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg max-[639px]:pb-2 min-[640px]:min-h-[max(44vh,300px)]',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:sticky max-[639px]:top-12 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
@@ -92,6 +94,15 @@ export function Studio() {
         <div className="hidden w-full flex-shrink-0 justify-center max-[639px]:flex">
           <StickyFit />
         </div>
+
+        {/* Mobile: sticky section selector (part of the pinned bowl region) that
+            heads the control column and switches the scrolling content below
+            between the bead picker and the sidebar. Full-bleed and flush with
+            that content (shared surface) so it reads as part of the section; a
+            small gap above separates it from the bowl/fit row. */}
+        <div className="mt-2 hidden w-full flex-shrink-0 max-[639px]:block">
+          <MobilePanelTabs />
+        </div>
         </div>
 
       {/* Capped to a fraction of the desktop viewport so the bowl always gets the
@@ -103,6 +114,7 @@ export function Studio() {
         className={cn(
           'transition-[transform,opacity] duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto',
           shareOpen && 'pointer-events-none translate-y-full opacity-0',
+          mobilePanel !== 'add' && 'max-[639px]:hidden',
         )}
       >
         <BeadPicker />
