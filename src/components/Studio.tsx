@@ -3,6 +3,7 @@ import { useStore } from '@/store/store';
 import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
 import { BackgroundDropdown } from './BackgroundDropdown';
+import { CanvasActions } from './CanvasActions';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
@@ -53,8 +54,9 @@ export function Studio() {
           )}
         />
 
-        {/* Overlay control pinned to the bowl's top-right for choosing the bowl
-            background (replaces the old Preview Settings row). */}
+        {/* Floating actions pinned to the bowl's top-left (Preview & Share, Save
+            Design) and the background control on the top-right. */}
+        <CanvasActions />
         <BackgroundDropdown />
 
         {/* The box the bowl must fit inside. The engine sizes the canvas to this
