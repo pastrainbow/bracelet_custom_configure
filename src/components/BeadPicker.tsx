@@ -21,7 +21,7 @@ function AddSizeSelector() {
   return (
     <div className="mt-2.5 flex items-center gap-2 border-t border-border pt-2.5">
       <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-        New bead size
+        Bead size
       </span>
       <div className="flex gap-1">
         {BEAD_SIZES.map((mm) => (
@@ -75,6 +75,8 @@ export function BeadPicker() {
         className="mb-2.5"
       />
 
+      {superCat === 'beads' && <AddSizeSelector />}
+
       <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1">
         {items.map((def) => (
           <button
@@ -89,7 +91,6 @@ export function BeadPicker() {
         ))}
       </div>
 
-      <AddSizeSelector />
     </div>
   );
 }
