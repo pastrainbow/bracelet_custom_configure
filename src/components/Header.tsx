@@ -12,7 +12,7 @@ export function Header({ wristHint = 'Wrist size: 15.5 – 16.5 cm' }: { wristHi
   return (
     <header
       className={cn(
-        'z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-surface px-7 transition-all duration-300 max-[639px]:h-12 max-[639px]:px-4',
+        'z-10 flex h-14 flex-shrink-0 items-center gap-3 border-b border-border bg-surface px-7 transition-all duration-300 max-[639px]:sticky max-[639px]:top-0 max-[639px]:z-30 max-[639px]:h-12 max-[639px]:px-4',
         shareOpen && 'pointer-events-none -translate-y-2 opacity-0',
       )}
     >

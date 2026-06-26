@@ -192,19 +192,21 @@ export class BraceletEngine {
   // ── sizing ───────────────────────────────────────────────────────────────────
 
   resize(): void {
-    // Skip until the container has actually been laid out — otherwise we'd lock
-    // in the clamped minimum size (e.g. before dev CSS is injected).
-    if (this.container.offsetWidth === 0 || this.container.offsetHeight === 0) return;
+    // Measure the dedicated canvas area, not the panel: the bowl is sized to this
+    // box (which already excludes the button, hint and bead picker), so it scales
+    // to fit short screens instead of overflowing onto them. Its height is set by
+    // the flex layout (and clipped via overflow-hidden), independent of the canvas,
+    // so there's no measure→resize feedback loop. Measuring the area (rather than
+    // the panel) also keeps sizing correct when the panel is `display:contents` on
+    // mobile for the sticky-bowl layout — display:contents elements have no box.
+    const area = this.container.querySelector<HTMLElement>('[data-canvas-area]');
+    // Skip until it has actually been laid out — otherwise we'd lock in the
+    // clamped minimum size (e.g. before dev CSS is injected).
+    if (!area || area.clientWidth === 0 || area.clientHeight === 0) return;
 
     const isMobile = window.matchMedia('(max-width: 639px)').matches;
-    // Size the bowl to the dedicated canvas area, not the whole column. The area
-    // box already excludes the button, hint and bead picker, so the bowl scales
-    // down to fit short screens instead of overflowing onto them. Its height is
-    // set by the flex layout (and clipped via overflow-hidden), independent of
-    // the canvas, so there's no measure→resize feedback loop.
-    const area = this.container.querySelector<HTMLElement>('[data-canvas-area]');
-    const areaW = area?.clientWidth ?? this.container.offsetWidth;
-    const areaH = area?.clientHeight ?? this.container.offsetHeight;
+    const areaW = area.clientWidth;
+    const areaH = area.clientHeight;
     // A little inset so the bowl's rim shadow never sits flush against the edges.
     const inset = isMobile ? 24 : 16;
     const available = Math.min(areaW, areaH) - inset;
@@ -222,8 +224,11 @@ export class BraceletEngine {
     this.canvas.style.width = `${this.canvasSize}px`;
     this.canvas.style.height = `${this.canvasSize}px`;
 
-    this.overlayW = this.container.offsetWidth;
-    this.overlayH = this.container.offsetHeight;
+    // The overlay lives inside the bowl region and covers it; size it to that box
+    // (its own parent), which stays valid even when the panel is display:contents.
+    const overlayHost = this.overlay.parentElement ?? this.container;
+    this.overlayW = overlayHost.offsetWidth;
+    this.overlayH = overlayHost.offsetHeight;
     this.sizeCanvas(this.overlay, this.octx, this.overlayW, this.overlayH);
 
     // Rescale existing beads (size + position) so the layout is identical, just

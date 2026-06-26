@@ -26,22 +26,34 @@ export function Studio() {
   const isBracelet = mode !== 'free';
 
   return (
-    <div ref={containerRef} className="relative flex flex-col overflow-hidden max-[639px]:overflow-visible">
-      {/* Overlay spans the entire column so dragged beads can render anywhere. */}
-      <canvas
-        ref={overlayRef}
-        className={cn(
-          'pointer-events-none absolute inset-0 z-20 h-full w-full transition-opacity duration-300',
-          shareOpen && 'opacity-0',
-        )}
-      />
-
+    // On mobile the panel is `display:contents` so its children join the page's
+    // flex column alongside the sidebar — that makes the sticky bowl region (below)
+    // stay pinned while the bead picker, preview settings AND sidebar scroll past
+    // it. On desktop it's a normal flex column.
+    <div
+      ref={containerRef}
+      className="relative flex flex-col overflow-hidden max-[639px]:contents"
+    >
+      {/* On mobile this sticks to the top of the viewport so the bowl stays in
+          view while the bead picker / preview settings / sidebar scroll beneath
+          it (bg + z-index so that scrolling content slides under, not over). */}
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-all duration-300 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:pb-2 min-[640px]:min-h-[max(44vh,300px)]',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-all duration-300 max-[639px]:sticky max-[639px]:top-12 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg max-[639px]:pb-2 min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
+        {/* Overlay covers the bowl region so the size wheel, custom cursor and
+            dragged beads render over it. It's a child of the region so it stays
+            aligned (and sized — see engine resize) when the region sticks. */}
+        <canvas
+          ref={overlayRef}
+          className={cn(
+            'pointer-events-none absolute inset-0 z-20 h-full w-full transition-opacity duration-300',
+            shareOpen && 'opacity-0',
+          )}
+        />
+
         {/* The box the bowl must fit inside. The engine sizes the canvas to this
             area (not the whole column), so the bowl scales down to fit instead of
             overflowing onto the button, hint and bead picker on short screens. */}
@@ -70,16 +82,18 @@ export function Studio() {
             {isBracelet ? 'Scatter Beads' : 'Arrange as Bracelet'}
           </Button>
         </div>
-      </div>
 
-      <p
-        className={cn(
-          'mt-1.5 text-center text-[11px] text-muted transition-opacity duration-300',
-          shareOpen ? 'opacity-0' : 'opacity-75',
-        )}
-      >
-        Click a bead to resize it
-      </p>
+        {/* Part of the (mobile-sticky) canvas block so it reads as a caption to the
+            bowl and stays put while the controls scroll, rather than scrolling away. */}
+        <p
+          className={cn(
+            'flex-shrink-0 text-center text-[11px] text-muted transition-opacity duration-300',
+            shareOpen ? 'opacity-0' : 'opacity-75',
+          )}
+        >
+          Click a bead to resize it
+        </p>
+      </div>
 
       {/* Capped to a fraction of the desktop viewport so the bowl always gets the
           majority of the vertical space (and grows large on big screens instead
