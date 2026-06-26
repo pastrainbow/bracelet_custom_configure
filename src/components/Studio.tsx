@@ -22,7 +22,6 @@ export function Studio() {
   const count = useStore((s) => s.items.length);
   const toggleArrange = useStore((s) => s.toggleArrange);
   const shareOpen = useStore((s) => s.shareOpen);
-  const zoom = useStore((s) => s.zoom);
   const isBracelet = mode !== 'free';
 
   return (
@@ -62,10 +61,7 @@ export function Studio() {
           className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[260px] max-[639px]:flex-none"
         >
           <div data-canvas-wrap className="relative flex items-center justify-center overflow-hidden">
-            {/* Zoom is applied to a wrapper, not the canvas (the engine sets the
-                canvas width/height imperatively). getBoundingClientRect on the
-                canvas reflects this transform, so pointer hit-testing stays correct. */}
-            <div className="transition-transform duration-200" style={{ transform: `scale(${zoom})` }}>
+            <div className="transition-transform duration-200">
               <canvas ref={physicsRef} className="block cursor-none touch-none" />
             </div>
           </div>

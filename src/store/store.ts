@@ -28,8 +28,6 @@ interface ConfiguratorState {
   selectedId: string | null;
   beadSize: number;
   texture: TextureId;
-  /** Magnification of the bowl/bracelet preview (1 = fit). */
-  zoom: number;
   /** Shopper's wrist circumference in cm, or null until entered. */
   wristSizeCm: number | null;
   /** Highest completed step (0–3) for the progress tracker. */
@@ -57,7 +55,6 @@ interface ConfiguratorState {
   /** Resize every existing bead to the given size. */
   setAllBeadSize: (mm: number) => void;
   setTexture: (id: TextureId) => void;
-  setZoom: (zoom: number) => void;
   setWristSize: (cm: number | null) => void;
   toggleArrange: () => void;
   addToCart: () => Promise<void>;
@@ -123,9 +120,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
     set({ texture: id });
     get().engine?.setTexture(id);
   },
-
-  setZoom: (zoom) => set({ zoom }),
-
+  
   setWristSize: (cm) => set({ wristSizeCm: cm }),
 
   toggleArrange: () => get().engine?.toggleArrange(),

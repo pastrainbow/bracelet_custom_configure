@@ -10,10 +10,6 @@ export const DEFAULT_BEAD_SIZE: BeadSizeMm = 10;
 /** Pixels of bead radius per millimetre of diameter. */
 export const MM_TO_RADIUS = 2.2;
 
-/** Bowl/bracelet preview magnification range (1 = fit). */
-export const MIN_ZOOM = 1;
-export const MAX_ZOOM = 2.5;
-
 // ── Wrist fit ──
 // A bracelet should sit a little larger than the wrist for comfort. The
 // recommended bracelet length is the wrist circumference plus a comfort ease;

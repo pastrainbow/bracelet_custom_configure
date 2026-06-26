@@ -1,36 +1,9 @@
 import { useState } from 'react';
 import { ChevronDown, Settings2 } from 'lucide-react';
-import { useStore } from '@/store/store';
 import { TextureSelector } from './sidebar/TextureSelector';
-import { SectionTitle } from './ui/SectionTitle';
 import { cn } from './ui/cn';
-import { MAX_ZOOM, MIN_ZOOM } from '@/config/constants';
 
-function ZoomControl() {
-  const zoom = useStore((s) => s.zoom);
-  const setZoom = useStore((s) => s.setZoom);
-
-  return (
-    <div>
-      <div className="mb-1.5 flex items-center justify-between">
-        <SectionTitle>Zoom</SectionTitle>
-        <span className="text-[11px] font-semibold text-muted">{zoom.toFixed(1)}×</span>
-      </div>
-      <input
-        type="range"
-        min={MIN_ZOOM}
-        max={MAX_ZOOM}
-        step={0.1}
-        value={zoom}
-        onChange={(e) => setZoom(Number(e.target.value))}
-        aria-label="Preview zoom"
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-border accent-accent"
-      />
-    </div>
-  );
-}
-
-/** Collapsible panel with bowl background + zoom; sits below the bead picker.
+/** Collapsible panel with bowl background; sits below the bead picker.
  *  Collapsed by default so the bowl gets the vertical space (these are secondary
  *  controls); expanding it scrolls within the capped controls area. */
 export function PreviewSettings() {
@@ -56,7 +29,6 @@ export function PreviewSettings() {
       {open && (
         <div className="flex flex-col gap-3 px-5 pb-3.5 max-[639px]:px-4">
           <TextureSelector />
-          <ZoomControl />
         </div>
       )}
     </div>

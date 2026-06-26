@@ -94,7 +94,7 @@ export function BeadList() {
               aria-label="Set all beads to a size"
               className="cursor-pointer rounded-md border border-border bg-surface px-1.5 py-1 text-[11px] font-medium text-muted outline-none transition-colors hover:border-gold focus:border-gold"
             >
-              <option value="" disabled selected hidden>Set All Sizes</option>
+              <option value="" disabled hidden>Set All Sizes</option>
               {BEAD_SIZES.map((mm) => (
                 <option key={mm} value={mm}>
                   {mm}mm
