@@ -78,7 +78,7 @@ export function Studio() {
           shareOpen ? 'opacity-0' : 'opacity-75',
         )}
       >
-        Click a bead to select it, then resize it from "Your Beads"
+        Click a bead to resize it
       </p>
 
       {/* Capped to a fraction of the desktop viewport so the bowl always gets the
