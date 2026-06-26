@@ -4,6 +4,7 @@ import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
 import { BackgroundDropdown } from './BackgroundDropdown';
 import { CanvasActions } from './CanvasActions';
+import { StickyFit } from './StickyFit';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
@@ -73,10 +74,12 @@ export function Studio() {
           </div>
         </div>
 
-        <div className="flex-shrink-0">
+        {/* Desktop: the large centered arrange button (the fit bar stays in the
+            sidebar). Hidden on mobile, where StickyFit takes over. */}
+        <div className="mb-6 flex-shrink-0 max-[639px]:hidden">
           <Button
             variant={isBracelet ? 'gold' : 'primary'}
-            size="lg"
+            size="md"
             onClick={toggleArrange}
             disabled={!isBracelet && count === 0}
             className="rounded-pill shadow-float"
@@ -85,17 +88,11 @@ export function Studio() {
           </Button>
         </div>
 
-        {/* Part of the (mobile-sticky) canvas block so it reads as a caption to the
-            bowl and stays put while the controls scroll, rather than scrolling away. */}
-        <p
-          className={cn(
-            'flex-shrink-0 text-center text-[11px] text-muted transition-opacity duration-300',
-            shareOpen ? 'opacity-0' : 'opacity-75',
-          )}
-        >
-          Click a bead to resize it
-        </p>
-      </div>
+        {/* Mobile: compact arrange button + always-visible wrist fit bar/input. */}
+        <div className="hidden w-full flex-shrink-0 justify-center max-[639px]:flex">
+          <StickyFit />
+        </div>
+        </div>
 
       {/* Capped to a fraction of the desktop viewport so the bowl always gets the
           majority of the vertical space (and grows large on big screens instead

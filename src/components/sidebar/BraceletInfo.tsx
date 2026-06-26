@@ -24,12 +24,14 @@ function isInBounds(n: number): boolean {
   return Number.isFinite(n) && n >= WRIST_MIN_CM && n <= WRIST_MAX_CM;
 }
 
-function WristSizeField({
+export function WristSizeField({
   value,
   onChange,
+  compact = false,
 }: {
   value: number | null;
   onChange: (cm: number | null) => void;
+  compact?: boolean;
 }) {
   const showError = useStore((s) => s.showError);
   const [text, setText] = useState(value != null ? String(value) : '');
@@ -62,28 +64,41 @@ function WristSizeField({
     }
   };
 
+  const input = (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="number"
+        inputMode="decimal"
+        min={WRIST_MIN_CM}
+        max={WRIST_MAX_CM}
+        step={0.5}
+        value={text}
+        onChange={(e) => handleChange(e.target.value)}
+        onBlur={handleCommit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') e.currentTarget.blur();
+        }}
+        placeholder="16"
+        aria-label="Wrist size in centimetres"
+        className={cn(
+          'rounded-md border border-border bg-surface text-right font-semibold text-ink outline-none transition-colors focus:border-gold',
+          compact ? 'w-12 px-1.5 py-1 text-[13px]' : 'w-16 px-2 py-1 text-[13px]',
+        )}
+      />
+      <span className="text-xs text-muted">cm</span>
+    </div>
+  );
+
+  // Compact: just the bare input cluster — used inside the mobile wrist-size
+  // popover, which supplies its own "Wrist size" label.
+  if (compact) {
+    return input;
+  }
+
   return (
     <div className="flex items-center justify-between border-b border-bg py-2 text-[13px]">
       <span className="text-muted">Wrist Size</span>
-      <div className="flex items-center gap-1.5">
-        <input
-          type="number"
-          inputMode="decimal"
-          min={WRIST_MIN_CM}
-          max={WRIST_MAX_CM}
-          step={0.5}
-          value={text}
-          onChange={(e) => handleChange(e.target.value)}
-          onBlur={handleCommit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') e.currentTarget.blur();
-          }}
-          placeholder="16"
-          aria-label="Wrist size in centimetres"
-          className="w-16 rounded-md border border-border bg-surface px-2 py-1 text-right text-[13px] font-semibold text-ink outline-none transition-colors focus:border-gold"
-        />
-        <span className="text-xs text-muted">cm</span>
-      </div>
+      {input}
     </div>
   );
 }
@@ -120,12 +135,22 @@ function getFitStatus(est: number, recMin: number, recMax: number, hasBeads: boo
 }
 
 /** Recommended bracelet length range (cm) for a given wrist size. */
-function recommendedRange(wrist: number): { recMin: number; recMax: number } {
+export function recommendedRange(wrist: number): { recMin: number; recMax: number } {
   return { recMin: wrist + BRACELET_EASE_MIN_CM, recMax: wrist + BRACELET_EASE_MAX_CM };
 }
 
 /** Fit bar showing how the estimated length matches the recommended range. */
-function FitBar({ wrist, est, hasBeads }: { wrist: number; est: number; hasBeads: boolean }) {
+export function FitBar({
+  wrist,
+  est,
+  hasBeads,
+  compact = false,
+}: {
+  wrist: number;
+  est: number;
+  hasBeads: boolean;
+  compact?: boolean;
+}) {
   const { recMin, recMax } = recommendedRange(wrist);
   // A little headroom past the ideal zone so an over-long bracelet reads as overshoot.
   const scaleMax = recMax + 1.5;
@@ -134,9 +159,12 @@ function FitBar({ wrist, est, hasBeads }: { wrist: number; est: number; hasBeads
   const status = getFitStatus(est, recMin, recMax, hasBeads);
 
   return (
-    <div className="mt-2.5">
+    <div className={compact ? '' : 'mt-2.5'}>
       <div
-        className="relative h-2.5 w-full overflow-hidden rounded-full bg-bg"
+        className={cn(
+          'relative w-full overflow-hidden rounded-full bg-bg',
+          compact ? 'h-2' : 'h-2.5',
+        )}
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={Math.round(scaleMax)}
@@ -157,7 +185,15 @@ function FitBar({ wrist, est, hasBeads }: { wrist: number; est: number; hasBeads
           style={{ width: pct(est) }}
         />
       </div>
-      <div className={cn('mt-1.5 text-[12px] font-medium', status.textClass)}>{status.label}</div>
+      <div
+        className={cn(
+          'font-medium',
+          compact ? 'mt-1 text-[11px] leading-tight' : 'mt-1.5 text-[12px]',
+          status.textClass,
+        )}
+      >
+        {status.label}
+      </div>
     </div>
   );
 }
@@ -180,16 +216,22 @@ export function BraceletInfo() {
         {rec && (
           <Row label="Recommended" value={`${rec.recMin.toFixed(1)} – ${rec.recMax.toFixed(1)} cm`} />
         )}
-        <WristSizeField value={wristSizeCm} onChange={setWristSize} />
+        {/* On mobile the wrist input + fit bar live in the sticky bowl region
+            (see StickyFit), so hide the duplicates here. */}
+        <div className="max-[639px]:hidden">
+          <WristSizeField value={wristSizeCm} onChange={setWristSize} />
+        </div>
       </div>
 
-      {wristSizeCm != null ? (
-        <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} />
-      ) : (
-        <p className="mt-2 text-[12px] leading-snug text-muted">
-          Enter your wrist size for a personalised recommended length and live fit check.
-        </p>
-      )}
+      <div className="max-[639px]:hidden">
+        {wristSizeCm != null ? (
+          <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} />
+        ) : (
+          <p className="mt-2 text-[12px] leading-snug text-muted">
+            Enter your wrist size for a personalised recommended length and live fit check.
+          </p>
+        )}
+      </div>
     </div>
   );
 }
