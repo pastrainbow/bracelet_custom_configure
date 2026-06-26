@@ -77,12 +77,12 @@ export function BeadPicker() {
 
       {superCat === 'beads' && <AddSizeSelector />}
 
-      <div className="no-scrollbar flex gap-2.5 overflow-x-auto pb-1">
+      <div className="no-scrollbar grid max-h-[40vh] grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2.5 overflow-y-auto pb-1 max-[639px]:max-h-[34vh] max-[639px]:grid-cols-[repeat(auto-fill,minmax(60px,1fr))]">
         {items.map((def) => (
           <button
             key={def.id}
             onClick={() => addItem(def)}
-            className="flex min-w-[72px] flex-shrink-0 cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-transparent p-2 transition-all hover:border-border hover:bg-bg max-[639px]:min-w-[60px] max-[639px]:gap-1 max-[639px]:p-1.5"
+            className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-transparent p-2 transition-all hover:border-border hover:bg-bg max-[639px]:gap-1 max-[639px]:p-1.5"
           >
             <ItemThumb def={def} size={46} />
             <div className="text-center text-[11px] font-medium leading-tight text-ink">{def.name}</div>
