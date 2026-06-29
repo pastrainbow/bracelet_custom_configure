@@ -4,6 +4,8 @@ import { useBraceletEngine } from '@/hooks/useBraceletEngine';
 import { BeadPicker } from './BeadPicker';
 import { BackgroundDropdown } from './BackgroundDropdown';
 import { CanvasActions } from './CanvasActions';
+import { CanvasPrice } from './CanvasPrice';
+import { MobileFitBar } from './MobileFitBar';
 import { StickyFit } from './StickyFit';
 import { MobilePanelTabs } from './MobilePanelTabs';
 import { Button } from './ui/Button';
@@ -42,7 +44,7 @@ export function Studio() {
           scrolls internally, so the bowl never needs to scroll out of view. */}
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg min-[640px]:min-h-[max(44vh,300px)]',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg max-[639px]:pt-12 min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
@@ -57,10 +59,22 @@ export function Studio() {
           )}
         />
 
-        {/* Floating actions pinned to the bowl's top-left (Preview & Share, Save
-            Design) and the background control on the top-right. */}
+        {/* Floating actions over the bowl: Preview & Share (top-left on desktop,
+            top-right on mobile), the running price/quantity (mobile top-left) and
+            the background picker (desktop top-right; on mobile it moves into the
+            StickyFit control row). */}
         <CanvasActions />
-        <BackgroundDropdown />
+        <CanvasPrice />
+        <BackgroundDropdown className="absolute right-3 top-3 max-[639px]:hidden" />
+
+        {/* Mobile: wrist fit progress bar floated on the same line as the price
+            (top-left) and share (top-right) corner controls, centered between
+            them. It sits in the region's top padding band so the bowl clears it;
+            it scales narrow on small screens and renders nothing until a wrist
+            size is entered (see MobileFitBar). */}
+        <div className="absolute left-1/2 top-3 z-30 hidden w-[44%] max-w-[170px] -translate-x-1/2 text-center max-[639px]:block">
+          <MobileFitBar />
+        </div>
 
         {/* The box the bowl must fit inside. The engine sizes the canvas to this
             area (not the whole column), so the bowl scales down to fit instead of

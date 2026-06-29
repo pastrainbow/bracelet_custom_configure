@@ -4,10 +4,19 @@ import { TEXTURES, type TextureId } from '@/data/textures';
 import { useStore } from '@/store/store';
 import { cn } from './ui/cn';
 
-/** Floating control pinned to the top-right of the bowl. An icon button opens a
- *  small popover of texture swatches for setting the bowl background, replacing
- *  the old Preview Settings row beneath the bead picker. */
-export function BackgroundDropdown() {
+/** Icon button + texture-swatch popover for setting the bowl background. On
+ *  desktop it floats at the bowl's top-right (popover opening downward); on mobile
+ *  it sits inline in the bottom control row (popover opening upward).
+ *
+ *  @param direction  which way the popover opens ('down' on desktop, 'up' inline)
+ *  @param className   extra classes for the wrapper (e.g. desktop's absolute pin) */
+export function BackgroundDropdown({
+  direction = 'down',
+  className,
+}: {
+  direction?: 'up' | 'down';
+  className?: string;
+} = {}) {
   const texture = useStore((s) => s.texture);
   const setTexture = useStore((s) => s.setTexture);
   const [open, setOpen] = useState(false);
@@ -30,7 +39,7 @@ export function BackgroundDropdown() {
   }, [open]);
 
   return (
-    <div ref={ref} className="absolute right-3 top-3 z-30 max-[639px]:right-2 max-[639px]:top-2">
+    <div ref={ref} className={cn('relative z-30 flex-shrink-0', className)}>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Set bowl background"
@@ -45,7 +54,12 @@ export function BackgroundDropdown() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-11 w-max rounded-xl border border-border bg-surface p-2 shadow-float">
+        <div
+          className={cn(
+            'absolute right-0 w-max rounded-xl border border-border bg-surface p-2 shadow-float',
+            direction === 'down' ? 'top-11' : 'bottom-11',
+          )}
+        >
           <div className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
             Background
           </div>

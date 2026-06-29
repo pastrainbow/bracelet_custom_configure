@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { Ruler } from 'lucide-react';
+import { Ruler, Trash2 } from 'lucide-react';
 import { selectTotals, useStore } from '@/store/store';
-import { FitBar, WristSizeField } from './sidebar/BraceletInfo';
+import { WristSizeField } from './sidebar/BraceletInfo';
+import { BackgroundDropdown } from './BackgroundDropdown';
 import { Button } from './ui/Button';
 import { cn } from './ui/cn';
 
@@ -38,7 +39,7 @@ function WristButton({
   }, [open]);
 
   return (
-    <div ref={ref} className="relative z-30 mb-2.5 flex-shrink-0">
+    <div ref={ref} className="relative z-30 flex-shrink-0">
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Set wrist size"
@@ -53,7 +54,7 @@ function WristButton({
       </button>
 
       {open && (
-        <div className="absolute bottom-11 right-0 w-56 rounded-xl border border-border bg-surface p-3 shadow-float">
+        <div className="absolute bottom-11 left-0 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-3 shadow-float">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[12px] font-semibold text-ink">Wrist size</span>
             <WristSizeField value={value} onChange={onChange} compact />
@@ -68,48 +69,50 @@ function WristButton({
 }
 
 /**
- * Compact wrist-fit row shown only on mobile, inside the Studio's sticky bowl
- * region. The arrange button sits at the bottom-left and the wrist-size control
- * (see WristButton) at the bottom-right, leaving the bottom-centre empty until a
- * wrist size is set — at which point the live fit progress bar fills it. On
- * desktop the fit bar/input live in the sidebar (BraceletInfo), so this
- * component is hidden there.
+ * Compact control row shown only on mobile, inside the Studio's sticky bowl
+ * region. Left to right: the wrist-size control (see WristButton), the background
+ * picker and a clear-all button, then the arrange button pushed to the right. The
+ * live fit progress bar lives above the bowl now (see MobileFitBar). On desktop
+ * the fit bar/input live in the sidebar (BraceletInfo), so this is hidden there.
  */
 export function StickyFit() {
-  const { count, lengthCm } = useStore((s) => selectTotals(s));
+  const { count } = useStore((s) => selectTotals(s));
   const wristSizeCm = useStore((s) => s.wristSizeCm);
   const setWristSize = useStore((s) => s.setWristSize);
   const mode = useStore((s) => s.mode);
   const toggleArrange = useStore((s) => s.toggleArrange);
+  const clearAll = useStore((s) => s.clearAll);
 
   const isBracelet = mode !== 'free';
-  const hasBeads = count > 0;
-  const est = hasBeads ? lengthCm : 0;
 
   return (
     <div className="w-full max-w-[420px] px-4">
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
+        <WristButton value={wristSizeCm} onChange={setWristSize} />
+
+        <BackgroundDropdown direction="up" />
+
+        <button
+          onClick={clearAll}
+          disabled={count === 0}
+          aria-label="Clear all beads"
+          title="Clear all beads"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-border bg-surface/90 text-muted shadow-float backdrop-blur transition-colors hover:border-gold hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted"
+        >
+          <Trash2 size={16} />
+        </button>
+
+        <div className="flex-1" />
+
         <Button
           variant={isBracelet ? 'gold' : 'primary'}
-          size="sm"
+          size="md"
           onClick={toggleArrange}
           disabled={!isBracelet && count === 0}
-          className="mb-2.5 flex-shrink-0 rounded-pill shadow-float"
+          className="flex-shrink-0 rounded-pill shadow-float"
         >
           {isBracelet ? 'Scatter' : 'Arrange'}
         </Button>
-
-        {/* Bottom-centre: empty until a wrist size is set, then the live fit bar.
-            The extra top margin nudges the bar down so it lines up with the
-            vertical centre of the buttons (which carry a bottom margin), since the
-            fit label below the bar otherwise pulls the bar above their centre. */}
-        <div className="mt-2 min-w-0 flex-1">
-          {wristSizeCm != null && (
-            <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} compact />
-          )}
-        </div>
-
-        <WristButton value={wristSizeCm} onChange={setWristSize} />
       </div>
     </div>
   );
