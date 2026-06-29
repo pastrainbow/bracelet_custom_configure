@@ -19,7 +19,7 @@ function AddSizeSelector() {
   const setBeadSize = useStore((s) => s.setBeadSize);
 
   return (
-    <div className="mt-2.5 flex items-center gap-2 border-t border-border pt-2.5">
+    <div className="mt-1 flex items-center gap-2 max-[639px]:flex-shrink-0">
       <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
         Bead size
       </span>
@@ -71,11 +71,12 @@ export function BeadPicker() {
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:flex-1 max-[639px]:border-t-0 max-[639px]:px-4 max-[639px]:pb-3.5">
+    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:flex max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:flex-col max-[639px]:overflow-hidden max-[639px]:border-t-0 max-[639px]:px-4 max-[639px]:pb-3.5">
       {/* Item name search — sits at the head of the picker, just under the
           Add Item / Order Info selector, and filters across every type in the
-          active super-category. */}
-      <div className="relative mb-2.5">
+          active super-category. Pinned on mobile (flex-shrink-0) so it never
+          scrolls away with the items. */}
+      <div className="relative mb-2.5 max-[639px]:flex-shrink-0">
         <svg
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
           viewBox="0 0 24 24"
@@ -111,11 +112,11 @@ export function BeadPicker() {
         )}
       </div>
 
-      <div className="mb-2.5 border-b border-border pb-2.5">
+      <div className="mb-2.5 border-b border-border pb-2.5 max-[639px]:flex-shrink-0">
         <PillTabs tabs={SUPER_TABS} value={superCat} onValueChange={onSuperChange} variant="solid" />
       </div>
 
-      <div className="flex gap-3 max-[639px]:gap-2.5">
+      <div className="flex gap-3 max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:gap-2.5">
         {/* Type selector as a vertical column down the left edge of the section.
             A snug fixed width keeps single words on one line (e.g. "Pendants")
             while letting multi-word labels wrap (e.g. "Natural Stone"). */}
@@ -142,12 +143,13 @@ export function BeadPicker() {
           })}
         </div>
 
-        {/* Right side: size selector (beads only) + the items grid. */}
-        <div className="min-w-0 flex-1">
+        {/* Right side: size selector (beads only) + the items grid. On mobile a
+            flex column whose only scrolling child is the grid below. */}
+        <div className="min-w-0 flex-1 max-[639px]:flex max-[639px]:min-h-0 max-[639px]:flex-col">
           {superCat === 'beads' && <AddSizeSelector />}
 
           {items.length > 0 ? (
-            <div className="no-scrollbar mt-2.5 grid max-h-[40vh] grid-cols-[repeat(auto-fill,minmax(72px,1fr))] gap-2.5 overflow-y-auto pb-1 max-[639px]:max-h-[34vh] max-[639px]:grid-cols-[repeat(auto-fill,minmax(60px,1fr))]">
+            <div className="no-scrollbar mt-2.5 grid max-h-[40vh] grid-cols-[repeat(auto-fill,minmax(72px,1fr))] content-start gap-2.5 overflow-y-auto pb-1 max-[639px]:max-h-none max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:grid-cols-[repeat(auto-fill,minmax(60px,1fr))]">
               {items.map((def) => (
                 <button
                   key={def.id}

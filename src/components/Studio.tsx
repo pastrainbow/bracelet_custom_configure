@@ -37,12 +37,12 @@ export function Studio() {
       ref={containerRef}
       className="relative flex flex-col overflow-hidden max-[639px]:contents"
     >
-      {/* On mobile this sticks to the top of the viewport so the bowl stays in
-          view while the bead picker / sidebar scroll beneath it (bg + z-index so
-          that scrolling content slides under, not over). */}
+      {/* On mobile the bowl is a fixed (flex-none) block at the top of the
+          viewport-height column; the control section below it fills the rest and
+          scrolls internally, so the bowl never needs to scroll out of view. */}
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:sticky max-[639px]:top-12 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg min-[640px]:min-h-[max(44vh,300px)]',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
@@ -67,7 +67,7 @@ export function Studio() {
             overflowing onto the button, hint and bead picker on short screens. */}
         <div
           data-canvas-area
-          className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:h-[85vw] max-[639px]:max-h-[400px] max-[639px]:min-h-[260px] max-[639px]:flex-none"
+          className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:aspect-square max-[639px]:h-[min(88vw,40vh)] max-[639px]:w-[min(88vw,40vh)] max-[639px]:max-h-[480px] max-[639px]:max-w-[480px] max-[639px]:min-h-[200px] max-[639px]:min-w-[200px] max-[639px]:flex-none"
         >
           <div data-canvas-wrap className="relative flex items-center justify-center overflow-hidden">
             <div className="transition-transform duration-200">
@@ -109,10 +109,11 @@ export function Studio() {
           majority of the vertical space (and grows large on big screens instead
           of leaving whitespace); the section scrolls internally when its content
           exceeds the cap, so nothing overlaps the bowl or clips off-screen.
-          Mobile keeps natural flow (the page scrolls). */}
+          Mobile fills the space left below the pinned bowl (min-h-0 so the
+          picker's own internal grid is the only thing that scrolls). */}
       <div
         className={cn(
-          'transition-[transform,opacity] duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto max-[639px]:flex max-[639px]:flex-1 max-[639px]:flex-col',
+          'transition-[transform,opacity] duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto max-[639px]:flex max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:flex-col',
           shareOpen && 'pointer-events-none translate-y-full opacity-0',
           mobilePanel !== 'add' && 'max-[639px]:hidden',
         )}

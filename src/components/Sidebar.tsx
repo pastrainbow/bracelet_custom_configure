@@ -16,7 +16,7 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        'flex flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-5 transition-all duration-300 max-[1024px]:gap-3 max-[1024px]:p-3.5 max-[639px]:gap-3 max-[639px]:border-l-0 max-[639px]:border-t-0 max-[639px]:p-4 max-[639px]:pb-12',
+        'flex flex-col gap-4 overflow-y-auto border-l border-border bg-surface p-5 transition-all duration-300 max-[1024px]:gap-3 max-[1024px]:p-3.5 max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:gap-3 max-[639px]:border-l-0 max-[639px]:border-t-0 max-[639px]:p-4 max-[639px]:pb-12',
         shareOpen && 'pointer-events-none translate-x-full opacity-0',
         mobilePanel !== 'order' && 'max-[639px]:hidden',
       )}
