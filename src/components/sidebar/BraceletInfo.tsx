@@ -145,11 +145,16 @@ export function FitBar({
   est,
   hasBeads,
   compact = false,
+  floatingLabel = false,
 }: {
   wrist: number;
   est: number;
   hasBeads: boolean;
   compact?: boolean;
+  /** Position the status label absolutely beneath the track so it doesn't add to
+   *  the bar's height — lets the track itself be vertically centred against
+   *  neighbouring controls (used in the mobile floating control row). */
+  floatingLabel?: boolean;
 }) {
   const { recMin, recMax } = recommendedRange(wrist);
   // A little headroom past the ideal zone so an over-long bracelet reads as overshoot.
@@ -159,7 +164,11 @@ export function FitBar({
   const status = getFitStatus(est, recMin, recMax, hasBeads);
 
   return (
-    <div className={compact ? '' : 'mt-2.5'}>
+    // For floatingLabel, the root is intentionally NOT a positioning context, so
+    // the absolutely-positioned label escapes to the nearest positioned ancestor
+    // (the full-width mobile control row) and thus centres on the bowl rather than
+    // on this off-centre fit column.
+    <div className={cn(compact ? '' : 'mt-2.5')}>
       <div
         className={cn(
           'relative w-full overflow-hidden rounded-full bg-bg',
@@ -188,7 +197,11 @@ export function FitBar({
       <div
         className={cn(
           'font-medium',
-          compact ? 'mt-1 text-[11px] leading-tight' : 'mt-1.5 text-[12px]',
+          floatingLabel
+            ? 'pointer-events-none absolute inset-x-0 top-1/2 mt-[6px] text-center text-[11px] leading-tight'
+            : compact
+              ? 'mt-1 text-[11px] leading-tight'
+              : 'mt-1.5 text-[12px]',
           status.textClass,
         )}
       >

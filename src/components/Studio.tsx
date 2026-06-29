@@ -44,7 +44,7 @@ export function Studio() {
           scrolls internally, so the bowl never needs to scroll out of view. */}
       <div
         className={cn(
-          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2.5 max-[639px]:bg-bg max-[639px]:pt-12 min-[640px]:min-h-[max(44vh,300px)]',
+          'relative flex min-h-0 flex-1 flex-col items-center justify-center gap-3 transition-[transform,opacity] duration-300 max-[639px]:z-10 max-[639px]:flex-none max-[639px]:gap-2 max-[639px]:bg-bg max-[639px]:pt-14 min-[640px]:min-h-[max(44vh,300px)]',
           shareOpen && 'scale-90 opacity-0',
         )}
       >
@@ -59,21 +59,25 @@ export function Studio() {
           )}
         />
 
-        {/* Floating actions over the bowl: Preview & Share (top-left on desktop,
-            top-right on mobile), the running price/quantity (mobile top-left) and
-            the background picker (desktop top-right; on mobile it moves into the
-            StickyFit control row). */}
+        {/* Desktop floating controls over the bowl: Preview & Share (top-left) and
+            the background picker (top-right). On mobile both move elsewhere — share
+            into the floating control row below, background into StickyFit. */}
         <CanvasActions />
-        <CanvasPrice />
         <BackgroundDropdown className="absolute right-3 top-3 max-[639px]:hidden" />
 
-        {/* Mobile: wrist fit progress bar floated on the same line as the price
-            (top-left) and share (top-right) corner controls, centered between
-            them. It sits in the region's top padding band so the bowl clears it;
-            it scales narrow on small screens and renders nothing until a wrist
-            size is entered (see MobileFitBar). */}
-        <div className="absolute left-1/2 top-3 z-30 hidden w-[44%] max-w-[170px] -translate-x-1/2 text-center max-[639px]:block">
-          <MobileFitBar />
+        {/* Mobile: one floating control row over the bowl's top — the running
+            price/quantity (left), the wrist-fit bar filling the space between, and
+            the Preview & Share button (right). `items-center` keeps the fit bar's
+            progress track vertically aligned with the price pill and share button
+            (its status label floats just beneath the track). The row floats over
+            the bowl; the region's top padding (below) reserves the space so the
+            bowl clears it. */}
+        <div className="absolute inset-x-0 top-2 z-30 hidden items-center gap-4 px-2 max-[639px]:flex">
+          <CanvasPrice />
+          <div className="min-w-0 flex-1">
+            <MobileFitBar />
+          </div>
+          <CanvasActions inline />
         </div>
 
         {/* The box the bowl must fit inside. The engine sizes the canvas to this
@@ -81,7 +85,7 @@ export function Studio() {
             overflowing onto the button, hint and bead picker on short screens. */}
         <div
           data-canvas-area
-          className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:aspect-square max-[639px]:h-[min(88vw,40vh)] max-[639px]:w-[min(88vw,40vh)] max-[639px]:max-h-[480px] max-[639px]:max-w-[480px] max-[639px]:min-h-[200px] max-[639px]:min-w-[200px] max-[639px]:flex-none"
+          className="flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden max-[639px]:aspect-[8/7] max-[639px]:h-auto max-[639px]:w-[min(88vw,40vh)] max-[639px]:max-w-[480px] max-[639px]:min-w-[200px] max-[639px]:flex-none"
         >
           <div data-canvas-wrap className="relative flex items-center justify-center overflow-hidden">
             <div className="transition-transform duration-200">

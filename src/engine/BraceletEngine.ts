@@ -220,7 +220,11 @@ export class BraceletEngine {
     const areaH = area.clientHeight;
     // A little inset so the bowl's rim shadow never sits flush against the edges.
     const inset = isMobile ? 24 : 16;
-    const available = Math.min(areaW, areaH) - inset;
+    // On mobile the canvas area is deliberately shorter than it is wide (see
+    // Studio) so the round bowl doesn't leave large empty bands above and below
+    // it. Size the bowl to the width and let the square canvas's empty top/bottom
+    // strips be clipped by the area's overflow-hidden; on desktop fit both axes.
+    const available = (isMobile ? areaW : Math.min(areaW, areaH)) - inset;
 
     const prevSize = this.canvasSize;
     this.canvasSize = Math.max(CANVAS_MIN, Math.min(CANVAS_MAX, available));

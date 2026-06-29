@@ -13,5 +13,5 @@ export function MobileFitBar() {
   const hasBeads = count > 0;
   const est = hasBeads ? lengthCm : 0;
 
-  return <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} compact />;
+  return <FitBar wrist={wristSizeCm} est={est} hasBeads={hasBeads} compact floatingLabel />;
 }
