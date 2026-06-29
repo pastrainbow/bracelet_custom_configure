@@ -112,7 +112,7 @@ export function Studio() {
           Mobile keeps natural flow (the page scrolls). */}
       <div
         className={cn(
-          'transition-[transform,opacity] duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto',
+          'transition-[transform,opacity] duration-300 min-[640px]:max-h-[40vh] min-[640px]:min-h-0 min-[640px]:overflow-y-auto max-[639px]:flex max-[639px]:flex-1 max-[639px]:flex-col',
           shareOpen && 'pointer-events-none translate-y-full opacity-0',
           mobilePanel !== 'add' && 'max-[639px]:hidden',
         )}

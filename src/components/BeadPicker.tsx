@@ -71,7 +71,7 @@ export function BeadPicker() {
   };
 
   return (
-    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:border-t-0 max-[639px]:px-4 max-[639px]:pb-3.5">
+    <div className="flex-shrink-0 border-t border-border bg-surface px-5 py-3 max-[639px]:flex-1 max-[639px]:border-t-0 max-[639px]:px-4 max-[639px]:pb-3.5">
       {/* Item name search — sits at the head of the picker, just under the
           Add Item / Order Info selector, and filters across every type in the
           active super-category. */}
