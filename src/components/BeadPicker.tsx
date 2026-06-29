@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { SuperCategory } from '@/types';
+import { isSizeAvailable } from '@/types';
 import { BEAD_SIZES } from '@/config/constants';
 import { CATALOGUE, SUPERCATS } from '@/data/catalogue';
 import { formatPrice, priceFor } from '@/data/pricing';
@@ -150,17 +151,50 @@ export function BeadPicker() {
 
           {items.length > 0 ? (
             <div className="no-scrollbar mt-2.5 grid max-h-[40vh] grid-cols-[repeat(auto-fill,minmax(72px,1fr))] content-start gap-2.5 overflow-y-auto pb-1 max-[639px]:max-h-none max-[639px]:min-h-0 max-[639px]:flex-1 max-[639px]:grid-cols-[repeat(auto-fill,minmax(60px,1fr))]">
-              {items.map((def) => (
-                <button
-                  key={def.id}
-                  onClick={() => addItem(def)}
-                  className="flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border-2 border-transparent p-2 transition-all hover:border-border hover:bg-bg max-[639px]:gap-1 max-[639px]:p-1.5"
-                >
-                  <ItemThumb def={def} size={46} />
-                  <div className="text-center text-[11px] font-medium leading-tight text-ink">{def.name}</div>
-                  <div className="text-[10px] text-muted">{formatPrice(priceFor(def, beadSize))}</div>
-                </button>
-              ))}
+              {items.map((def) => {
+                // Beads stocked only in some diameters can't be added at the
+                // currently selected size — grey them out and block adding.
+                const available = isSizeAvailable(def, beadSize);
+                return (
+                  <button
+                    key={def.id}
+                    onClick={() => available && addItem(def)}
+                    disabled={!available}
+                    aria-disabled={!available}
+                    title={available ? undefined : `Not available in ${beadSize}mm`}
+                    className={cn(
+                      'flex flex-col items-center gap-1.5 rounded-xl border-2 border-transparent p-2 transition-all max-[639px]:gap-1 max-[639px]:p-1.5',
+                      available
+                        ? 'cursor-pointer hover:border-border hover:bg-bg'
+                        : 'cursor-not-allowed',
+                    )}
+                  >
+                    <div className={cn(!available && 'opacity-40 grayscale')}>
+                      <ItemThumb def={def} size={46} />
+                    </div>
+                    <div
+                      className={cn(
+                        'w-full text-center text-[11px] font-medium leading-tight',
+                        available ? 'text-ink' : 'text-muted',
+                      )}
+                    >
+                      {def.name}
+                    </div>
+                    {available ? (
+                      <div className="text-[10px] text-muted">{formatPrice(priceFor(def, beadSize))}</div>
+                    ) : (
+                      // Constrain to the card (w-full) with a font small enough to
+                      // stay on one line even in the narrowest grid cell (the mobile
+                      // grid bottoms out near a 60px card → ~44px of text room, and
+                      // "UNAVAILABLE" is ~42px here); overflow-wrap is a last-resort
+                      // guard so it breaks rather than clipping the section edge.
+                      <div className="w-full text-center text-[6.5px] font-semibold uppercase leading-tight text-muted [overflow-wrap:anywhere]">
+                        Unavailable
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div className="mt-2.5 py-6 text-center text-[13px] text-muted">

@@ -80,17 +80,22 @@ export interface WheelDrawState {
   cy: number;
   hoveredSector: number;
   currentSize: number | undefined;
+  /** Per-sector availability (indexed like `WHEEL_SIZES`). Unavailable sectors
+   *  are greyed out and can't be picked. Defaults to all-available when omitted. */
+  available?: boolean[];
 }
 
 /** Radial size-picker menu drawn on the overlay canvas. */
-export function drawSizeWheel(ctx: Ctx, { cx, cy, hoveredSector, currentSize }: WheelDrawState): void {
+export function drawSizeWheel(ctx: Ctx, { cx, cy, hoveredSector, currentSize, available }: WheelDrawState): void {
   ctx.save();
 
   for (let i = 0; i < 4; i++) {
     const sa = (i * Math.PI) / 2 - Math.PI / 4;
     const ea = sa + Math.PI / 2;
+    const isAvailable = available ? available[i] !== false : true;
     const isCurrent = WHEEL_SIZES[i] === currentSize;
-    const isHovered = i === hoveredSector;
+    // Unavailable sizes never highlight on hover — they can't be picked.
+    const isHovered = isAvailable && i === hoveredSector;
     const outerR = isHovered ? WHEEL_OUTER + 10 : WHEEL_OUTER;
 
     ctx.beginPath();
@@ -102,11 +107,13 @@ export function drawSizeWheel(ctx: Ctx, { cx, cy, hoveredSector, currentSize }: 
     ctx.shadowColor = 'rgba(0,0,0,0.18)';
     ctx.shadowBlur = 12;
     ctx.shadowOffsetY = 3;
-    ctx.fillStyle = isHovered
-      ? '#b8860b'
-      : isCurrent
-        ? 'rgba(184,134,11,0.22)'
-        : 'rgba(255,255,255,0.93)';
+    ctx.fillStyle = !isAvailable
+      ? 'rgba(225,222,216,0.92)'
+      : isHovered
+        ? '#b8860b'
+        : isCurrent
+          ? 'rgba(184,134,11,0.22)'
+          : 'rgba(255,255,255,0.93)';
     ctx.fill();
     ctx.shadowColor = 'transparent';
     ctx.strokeStyle = isHovered ? '#a07020' : 'rgba(180,160,120,0.35)';
@@ -115,7 +122,7 @@ export function drawSizeWheel(ctx: Ctx, { cx, cy, hoveredSector, currentSize }: 
 
     const centerA = (i * Math.PI) / 2;
     const labelR = (WHEEL_INNER + WHEEL_OUTER) / 2 + (isHovered ? 5 : 0);
-    ctx.fillStyle = isHovered ? '#fff' : isCurrent ? '#7a5a10' : '#555';
+    ctx.fillStyle = !isAvailable ? '#b3ada3' : isHovered ? '#fff' : isCurrent ? '#7a5a10' : '#555';
     ctx.font = `${isHovered ? 'bold ' : ''}12px -apple-system,sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';

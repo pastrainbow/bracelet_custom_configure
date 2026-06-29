@@ -9,6 +9,11 @@ export interface BeadDef {
   gradient: [string, string];
   /** Pearlescent beads get a brighter, mobile highlight. */
   shimmer?: boolean;
+  /**
+   * Diameters (mm) this bead is offered in. Omit to allow every size in
+   * `BEAD_SIZES`; provide a subset when a bead is only stocked in some sizes.
+   */
+  sizes?: number[];
 }
 
 export type AccessoryShape =
@@ -39,6 +44,16 @@ export type ItemDef = BeadDef | AccessoryDef;
 /** Type guard: accessories carry a `shape`, beads carry a `gradient`. */
 export function isAccessory(def: ItemDef): def is AccessoryDef {
   return 'shape' in def;
+}
+
+/**
+ * Whether an item can be added at the given diameter (mm). Accessories are
+ * size-agnostic and always available; a bead is available in every size unless
+ * it declares an explicit `sizes` list, in which case only those diameters are.
+ */
+export function isSizeAvailable(def: ItemDef, mm: number): boolean {
+  if (isAccessory(def)) return true;
+  return !def.sizes || def.sizes.includes(mm);
 }
 
 // ─── CATALOGUE STRUCTURE ─────────────────────────────────────────────────────

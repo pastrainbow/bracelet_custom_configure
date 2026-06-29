@@ -1,6 +1,6 @@
 import Matter from 'matter-js';
 import type { EngineSummary, ItemDef, PlacedItem, StudioMode } from '@/types';
-import { isAccessory } from '@/types';
+import { isAccessory, isSizeAvailable } from '@/types';
 import {
   ARRANGE_SPEED,
   BEAD_SIZES,
@@ -43,6 +43,17 @@ let nextId = 1;
 const makeId = () => `item-${nextId++}`;
 
 const MAX_LENGTH_MSG = `Maximum bracelet length (${MAX_BRACELET_LENGTH_CM} cm) reached`;
+
+/** Error shown when a "set all sizes" leaves some bead types behind because
+ *  they aren't offered in the chosen size. */
+function unavailableSizeMsg(names: string[], mm: number): string {
+  const list =
+    names.length === 1
+      ? names[0]
+      : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+  const verb = names.length === 1 ? 'is' : 'are';
+  return `${list} ${verb} not available in ${mm}mm`;
+}
 
 // ── Fixed-timestep physics ──
 /** One physics step (ms) — physics is integrated in fixed slices for stability. */
@@ -482,20 +493,38 @@ export class BraceletEngine {
   }
 
   /**
-   * Set the default size and resize every existing bead to it. Rejected only
-   * when the new sizes would push the estimate over the max length.
+   * Set the default size and resize every existing bead to it — except beads
+   * whose type isn't offered in that size, which are left unchanged. Rejected
+   * only when the new sizes would push the estimate over the max length. If any
+   * beads were skipped for availability, an error names those types.
    */
   setBeadSize(mm: number): boolean {
-    const sizes = this.items.map((it) => (isAccessory(it.def) ? it.size : mm));
+    // A bead only adopts the new size if it's a bead AND offered in that size;
+    // everything else (accessories, unavailable types) keeps its current size.
+    const willResize = (it: LiveItem) =>
+      !isAccessory(it.def) && it.size !== mm && isSizeAvailable(it.def, mm);
+
+    const sizes = this.items.map((it) => (willResize(it) ? mm : it.size));
     if (this.lengthOf(sizes) > MAX_BRACELET_LENGTH_CM) {
       this.onError(MAX_LENGTH_MSG);
       return false;
     }
+
     this.beadSize = mm;
     for (const item of this.items) {
-      if (!isAccessory(item.def) && item.size !== mm) this.replaceBody(item, mm);
+      if (willResize(item)) this.replaceBody(item, mm);
     }
     this.emit();
+
+    // Surface the bead types that couldn't take the new size, so the shopper
+    // understands why some beads stayed put.
+    const unavailable = this.items.filter(
+      (it) => !isAccessory(it.def) && !isSizeAvailable(it.def, mm),
+    );
+    if (unavailable.length > 0) {
+      const names = [...new Set(unavailable.map((it) => it.def.name))];
+      this.onError(unavailableSizeMsg(names, mm));
+    }
     return true;
   }
 
@@ -838,12 +867,13 @@ export class BraceletEngine {
     if (!needsContent) return;
 
     if (this.wheel.open) {
-      const cur = this.items.find((it) => it.id === this.wheel.itemId)?.size;
+      const item = this.items.find((it) => it.id === this.wheel.itemId);
       drawSizeWheel(octx, {
         cx: this.wheel.cx,
         cy: this.wheel.cy,
         hoveredSector: this.wheel.hovered,
-        currentSize: cur,
+        currentSize: item?.size,
+        available: item ? WHEEL_SIZES.map((mm) => isSizeAvailable(item.def, mm)) : undefined,
       });
       return;
     }
@@ -1120,13 +1150,23 @@ export class BraceletEngine {
     this.overlay.style.cursor = '';
   }
 
+  /** The wheel's bead, or null if the wheel is closed / its bead is gone. */
+  private wheelItem(): LiveItem | null {
+    if (!this.wheel.open || !this.wheel.itemId) return null;
+    return this.items.find((it) => it.id === this.wheel.itemId) ?? null;
+  }
+
   private onWheelMove = (e: PointerEvent): void => {
     if (!this.wheel.open) return;
     const rect = this.overlay.getBoundingClientRect();
     const scale = this.overlayW / rect.width;
     const dx = (e.clientX - rect.left) * scale - this.wheel.cx;
     const dy = (e.clientY - rect.top) * scale - this.wheel.cy;
-    this.wheel.hovered = isWithinWheel(dx, dy, WHEEL_HIT_PAD) ? wheelSector(dx, dy) : -1;
+    const sector = isWithinWheel(dx, dy, WHEEL_HIT_PAD) ? wheelSector(dx, dy) : -1;
+    // Don't highlight a size this bead isn't available in — it can't be chosen.
+    const item = this.wheelItem();
+    this.wheel.hovered =
+      sector >= 0 && item && !isSizeAvailable(item.def, WHEEL_SIZES[sector]) ? -1 : sector;
   };
 
   private onWheelDown = (e: PointerEvent): void => {
@@ -1136,8 +1176,11 @@ export class BraceletEngine {
     const scale = this.overlayW / rect.width;
     const dx = (e.clientX - rect.left) * scale - this.wheel.cx;
     const dy = (e.clientY - rect.top) * scale - this.wheel.cy;
-    if (isWithinWheel(dx, dy, WHEEL_HIT_PAD) && this.wheel.itemId) {
-      this.resizeItem(this.wheel.itemId, WHEEL_SIZES[wheelSector(dx, dy)]);
+    const item = this.wheelItem();
+    if (isWithinWheel(dx, dy, WHEEL_HIT_PAD) && item) {
+      const mm = WHEEL_SIZES[wheelSector(dx, dy)];
+      // Ignore taps on greyed-out (unavailable) sectors.
+      if (isSizeAvailable(item.def, mm)) this.resizeItem(item.id, mm);
     }
     this.closeWheel();
   };

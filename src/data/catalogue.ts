@@ -15,17 +15,17 @@ const crystal: BeadDef[] = [
   { id: 'citrine', name: 'Citrine', price: 3, gradient: ['#f5c842', '#e8a800'] },
   { id: 'aquamarine', name: 'Aquamarine', price: 5, gradient: ['#7ec8e3', '#0b8dba'] },
   { id: 'obsidian', name: 'Obsidian', price: 3, gradient: ['#2c2c2c', '#111111'] },
-  { id: 'moonstone', name: 'Moonstone', price: 6, gradient: ['#d4e8f5', '#a8d0ed'], shimmer: true },
-  { id: 'labradorite', name: 'Labradorite', price: 7, gradient: ['#5c7a8a', '#3a566a'] },
+  { id: 'moonstone', name: 'Moonstone', price: 6, gradient: ['#d4e8f5', '#a8d0ed'], shimmer: true, sizes: [10, 12, 14] },
+  { id: 'labradorite', name: 'Labradorite', price: 7, gradient: ['#5c7a8a', '#3a566a'], sizes: [10, 12, 14] },
   { id: 'turquoise', name: 'Turquoise', price: 5, gradient: ['#40e0d0', '#1aa090'] },
-  { id: 'sunstone', name: 'Sunstone', price: 6, gradient: ['#ff9a3c', '#e06b00'] },
+  { id: 'sunstone', name: 'Sunstone', price: 6, gradient: ['#ff9a3c', '#e06b00'], sizes: [6, 10] },
 ];
 
 const stone: BeadDef[] = [
   { id: 'marble', name: 'White Marble', price: 4, gradient: ['#f0ede8', '#d8d4cc'] },
   { id: 'black-onyx', name: 'Black Onyx', price: 3, gradient: ['#1a1a1a', '#050505'] },
   { id: 'tiger-eye', name: 'Tiger Eye', price: 4, gradient: ['#c8860a', '#8b5e0a'] },
-  { id: 'jade', name: 'Jade', price: 8, gradient: ['#5da85d', '#2d7a2d'] },
+  { id: 'jade', name: 'Jade', price: 8, gradient: ['#5da85d', '#2d7a2d'], sizes: [6, 10, 12] },
   { id: 'lapis', name: 'Lapis Lazuli', price: 6, gradient: ['#1a3a7a', '#0d2050'] },
   { id: 'red-agate', name: 'Red Agate', price: 3, gradient: ['#c0392b', '#922b21'] },
   { id: 'jasper', name: 'Jasper', price: 3, gradient: ['#8b4513', '#5a2d0c'] },
@@ -33,7 +33,7 @@ const stone: BeadDef[] = [
 ];
 
 const shell: BeadDef[] = [
-  { id: 'pearl', name: 'Pearl', price: 8, gradient: ['#faf9f6', '#e8e4de'], shimmer: true },
+  { id: 'pearl', name: 'Pearl', price: 8, gradient: ['#faf9f6', '#e8e4de'], shimmer: true, sizes: [6, 10, 12] },
   { id: 'abalone', name: 'Abalone', price: 10, gradient: ['#6bbfbf', '#4a9fa0'] },
   { id: 'mother-pearl', name: 'Mother of Pearl', price: 7, gradient: ['#f0ece8', '#c8c0b8'], shimmer: true },
   { id: 'paua', name: 'Paua Shell', price: 9, gradient: ['#5040a0', '#302060'] },
