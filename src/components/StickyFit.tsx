@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Ruler, Trash2 } from 'lucide-react';
+import { Loader2, Ruler, ShoppingCart, Trash2 } from 'lucide-react';
 import { selectTotals, useStore } from '@/store/store';
 import { WristSizeField } from './sidebar/BraceletInfo';
 import { BackgroundDropdown } from './BackgroundDropdown';
@@ -71,7 +71,8 @@ function WristButton({
 /**
  * Compact control row shown only on mobile, inside the Studio's sticky bowl
  * region. Left to right: the wrist-size control (see WristButton), the background
- * picker and a clear-all button, then the arrange button pushed to the right. The
+ * picker, a clear-all button and an add-to-cart button, then the arrange button
+ * pushed to the right. The
  * live fit progress bar lives above the bowl now (see MobileFitBar). On desktop
  * the fit bar/input live in the sidebar (BraceletInfo), so this is hidden there.
  */
@@ -82,6 +83,8 @@ export function StickyFit() {
   const mode = useStore((s) => s.mode);
   const toggleArrange = useStore((s) => s.toggleArrange);
   const clearAll = useStore((s) => s.clearAll);
+  const addToCart = useStore((s) => s.addToCart);
+  const cartPending = useStore((s) => s.cartPending);
 
   const isBracelet = mode !== 'free';
 
@@ -100,6 +103,16 @@ export function StickyFit() {
           className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-border bg-surface/90 text-muted shadow-float backdrop-blur transition-colors hover:border-gold hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted"
         >
           <Trash2 size={16} />
+        </button>
+
+        <button
+          onClick={addToCart}
+          disabled={count === 0 || cartPending}
+          aria-label="Add to cart"
+          title="Add to cart"
+          className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border border-border bg-surface/90 text-muted shadow-float backdrop-blur transition-colors hover:border-gold hover:text-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-border disabled:hover:text-muted"
+        >
+          {cartPending ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
         </button>
 
         <div className="flex-1" />
