@@ -5,3 +5,5 @@ dist-widget
 .DS_Store
 *.tsbuildinfo
 .vite
+.env
+.shopify-deploy

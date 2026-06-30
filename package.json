@@ -8,6 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && vite build",
     "build:widget": "tsc --noEmit -p tsconfig.json && vite build --mode widget",
+    "deploy:shopify": "npm run build:widget && node --env-file=.env scripts/deploy-shopify.mjs",
+    "deploy:upload": "node --env-file=.env scripts/deploy-shopify.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json",
     "lint": "eslint . --ext .ts,.tsx"

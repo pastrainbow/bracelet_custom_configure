@@ -14,6 +14,14 @@ export default defineConfig(({ command, mode }) => {
     // Relative base so the built SPA works from any sub-path (e.g. GitHub
     // Pages project sites at /<repo>/). Dev server stays at '/'.
     base: command === 'build' && !isWidget ? './' : '/',
+    // The widget bundles React in. React reads `process.env.NODE_ENV`, which
+    // doesn't exist in the browser — and because the widget builds under a
+    // custom `--mode widget` (not the default `production` mode), Vite won't
+    // replace it automatically. Statically define it so no live `process`
+    // reference survives into the embeddable bundle.
+    define: isWidget
+      ? { 'process.env.NODE_ENV': JSON.stringify('production') }
+      : {},
     plugins: [react()],
     resolve: {
       alias: { '@': resolve(__dirname, 'src') },
