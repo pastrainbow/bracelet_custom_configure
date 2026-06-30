@@ -56,14 +56,19 @@ export function BackgroundDropdown({
       {open && (
         <div
           className={cn(
-            'absolute right-0 w-max rounded-xl border border-border bg-surface p-2 shadow-float',
-            direction === 'down' ? 'top-11' : 'bottom-11',
+            'absolute max-w-[calc(100vw-2rem)] rounded-xl border border-border bg-surface p-2 shadow-float',
+            // Desktop pins this top-right of the bowl, so anchor right, open down, and
+            // size to its contents (one swatch row).
+            // Mobile sits inline near the left of the control row, so anchor left, open
+            // up, and use a narrow fixed width so the swatches wrap into a compact grid
+            // that stays on screen instead of spilling off the right edge.
+            direction === 'down' ? 'right-0 top-11 w-max' : 'left-0 bottom-11 w-[184px]',
           )}
         >
           <div className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
             Background
           </div>
-          <div className="flex gap-1">
+          <div className="flex flex-wrap gap-1">
             {TEXTURES.map((t) => {
               const active = t.id === texture;
               return (
