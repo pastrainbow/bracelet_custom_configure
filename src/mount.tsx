@@ -27,6 +27,11 @@ export function mount(
     throw new Error(`[BraceletConfigurator] mount target not found: ${String(target)}`);
   }
 
+  // Mark the host element as the widget root. Tailwind utilities are scoped under
+  // `.bcfg` (see `important` in tailwind.config.js), so the host must carry the
+  // class for the App root's own utility classes to resolve to a `.bcfg` ancestor.
+  el.classList.add('bcfg');
+
   // Seed options before first render so the engine can load any initial design.
   useStore.getState().setOptions(options);
 

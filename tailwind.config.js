@@ -6,6 +6,15 @@ export default {
   corePlugins: {
     preflight: false,
   },
+  // Scope every utility under the widget root (`.bcfg`) and, in doing so, raise
+  // its specificity to two classes. Host themes like Shopify's Dawn ship their
+  // own generic classes (`.grid`, `.hidden`, `.uppercase`, …) and element
+  // selectors that would otherwise collide with — and, depending on stylesheet
+  // load order, override — the widget's bare utility classes. The `.bcfg`
+  // prefix makes the widget's utilities win deterministically without `!important`.
+  // (This is why mount() adds `.bcfg` to the host element: every utility now
+  // needs a `.bcfg` ancestor, including the App root's own classes.)
+  important: '.bcfg',
   theme: {
     extend: {
       colors: {

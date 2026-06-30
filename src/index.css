@@ -72,6 +72,36 @@
     background-image: none;
     cursor: pointer;
   }
+
+  /*
+   * ── Host-theme defenses ──
+   * A host theme (e.g. Shopify's Dawn) ships element- and generic-class
+   * selectors that match the widget's own markup and leak in. Tailwind
+   * utilities can't counter these because the widget sets no competing
+   * property, so neutralize them here — scoped to the widget root, and kept
+   * in the `base` layer so display utilities still win where they apply.
+   */
+
+  /*
+   * Dawn hides empty elements (`div:empty { display: none }`, etc.). Several
+   * widget elements are intentionally empty — the CSS-only bead swatches in the
+   * picker (their sheen is a `::after` pseudo, which doesn't satisfy `:empty`)
+   * and assorted decorative dots — so re-assert their natural display.
+   */
+  .bcfg :where(a, div, span, ul, dl, section, article, p):empty {
+    display: revert;
+  }
+
+  /*
+   * Dawn's generic `.grid` helper (a flex utility) collides with Tailwind's
+   * `grid` utility and leaks `margin-bottom: 2rem`, padding and list styling
+   * onto every element using the `grid` class.
+   */
+  .bcfg :where(.grid) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
 }
 
 /* Thin, unobtrusive scrollbars within the widget */
