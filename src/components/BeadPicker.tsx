@@ -77,7 +77,7 @@ export function BeadPicker() {
           Add Item / Order Info selector, and filters across every type in the
           active super-category. Pinned on mobile (flex-shrink-0) so it never
           scrolls away with the items. */}
-      <div className="relative mb-2.5 max-[639px]:flex-shrink-0">
+      <div className="relative mb-2.5 max-[639px]:mb-1.5 max-[639px]:flex-shrink-0">
         <svg
           className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
           viewBox="0 0 24 24"
@@ -113,7 +113,7 @@ export function BeadPicker() {
         )}
       </div>
 
-      <div className="mb-2.5 border-b border-border pb-2.5 max-[639px]:flex-shrink-0">
+      <div className="mb-2.5 border-b border-border pb-2.5 max-[639px]:mb-1 max-[639px]:pb-1.5 max-[639px]:flex-shrink-0">
         <PillTabs tabs={SUPER_TABS} value={superCat} onValueChange={onSuperChange} variant="solid" />
       </div>
 

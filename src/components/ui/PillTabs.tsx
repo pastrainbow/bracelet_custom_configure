@@ -34,9 +34,9 @@ export function PillTabs({ tabs, value, onValueChange, variant = 'solid', classN
               'flex-shrink-0 cursor-pointer rounded-pill text-xs font-semibold tracking-tight transition-all',
               variant === 'solid'
                 ? cn(
-                    'border-[1.5px] px-[18px] py-[5px]',
-                    'border-border text-muted hover:border-gold hover:text-gold',
-                    'data-[state=active]:border-accent data-[state=active]:bg-accent data-[state=active]:text-white',
+                    'px-[18px] py-[5px]',
+                    'text-muted hover:bg-bg hover:text-gold',
+                    'data-[state=active]:bg-accent data-[state=active]:text-white',
                   )
                 : cn(
                     'px-[14px] py-[5px] font-normal',

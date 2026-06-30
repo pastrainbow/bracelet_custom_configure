@@ -34,7 +34,7 @@ export function MobilePanelTabs() {
             aria-selected={active}
             onClick={() => setMobilePanel(p.value)}
             className={cn(
-              'flex-1 border-b-2 px-3 py-3 text-[13px] tracking-tight transition-colors',
+              'flex-1 border-b-2 px-3 py-1.5 text-[13px] tracking-tight transition-colors',
               active
                 ? 'border-gold font-semibold text-ink'
                 : 'border-border font-medium text-muted hover:text-ink',
