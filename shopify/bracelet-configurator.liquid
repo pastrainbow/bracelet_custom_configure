@@ -1,58 +1,91 @@
 {%- comment -%}
-  Bracelet Configurator — Shopify section/snippet example.
+  Bracelet Configurator — full-bleed section.
 
-  1. Build the widget:        npm run build:widget
-  2. Upload the two files from dist-widget/ to your theme assets:
-        - bracelet-configurator.umd.js
-        - bracelet-configurator.css
-  3. Include this snippet in a product template (or add as a section).
+  Fills the whole viewport below the header and hides the theme footer on this
+  page only (a {% style %} block is emitted just for pages containing this
+  section, so other pages keep their footer).
 
-  The widget calls `onAddToCart` with the chosen beads; this example posts to
-  Shopify's AJAX cart using a single "custom bracelet" product variant and
-  stores the design as line-item properties.
+  Assets uploaded by `npm run deploy:shopify`:
+    - bracelet-configurator.umd.js
+    - bracelet-configurator.css
 {%- endcomment -%}
 
-<div
-  id="bracelet-configurator"
-  style="height: 720px; max-width: 1100px; margin: 0 auto;"
-></div>
+<div id="bracelet-configurator"></div>
 
 {{ 'bracelet-configurator.css' | asset_url | stylesheet_tag }}
+
+{%- style -%}
+  /* Full-bleed: no section spacing, edge to edge. */
+  #shopify-section-{{ section.id }} {
+    margin: 0;
+    padding: 0;
+  }
+  #bracelet-configurator {
+    width: 100%;
+    min-height: 560px; /* JS sets the exact viewport-minus-header height */
+  }
+  /* Hide the footer + newsletter on THIS page only. */
+  .shopify-section-group-footer-group,
+  .footer,
+  footer.footer {
+    display: none !important;
+  }
+{%- endstyle -%}
+
 <script src="{{ 'bracelet-configurator.umd.js' | asset_url }}" defer></script>
-
 <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    if (!window.BraceletConfigurator) return;
+  (function () {
+    var SELECTOR = '#bracelet-configurator';
 
-    // The product/variant the bracelet design is added against.
-    var CUSTOM_BRACELET_VARIANT_ID = {{ product.selected_or_first_available_variant.id | json }};
+    // Size the configurator to fill the space below whatever sits above it
+    // (header + announcement bar), without needing to know the header's height.
+    function fit() {
+      var el = document.querySelector(SELECTOR);
+      if (!el) return;
+      var top = el.getBoundingClientRect().top; // distance from top at scroll 0
+      el.style.height = Math.max(560, window.innerHeight - top) + 'px';
+    }
 
-    window.BraceletConfigurator.mount('#bracelet-configurator', {
-      wristHint: 'Wrist size: 15.5 – 16.5 cm',
-      initialDesign: new URLSearchParams(window.location.search).get('design') || undefined,
+    function init() {
+      if (!window.BraceletConfigurator) return;
+      var el = document.querySelector(SELECTOR);
+      if (!el || el.dataset.mounted) return; // don't double-mount
+      el.dataset.mounted = '1';
+      fit();
 
-      onAddToCart: function (payload) {
-        return fetch('/cart/add.js', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: CUSTOM_BRACELET_VARIANT_ID,
-            quantity: 1,
-            properties: {
-              'Bead Count': payload.beadCount,
-              'Length (cm)': payload.estimatedLengthCm,
-              'Design': payload.designCode,
-              'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', '),
-            },
-          }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function () { window.location.href = '/cart'; });
-      },
+      window.BraceletConfigurator.mount(el, {
+        wristHint: 'Wrist size: 15.5 – 16.5 cm',
+        onAddToCart: function (payload) {
+          return fetch('/cart/add.js', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: {{ product.selected_or_first_available_variant.id | json }},
+              quantity: 1,
+              properties: {
+                'Design': payload.designCode,
+                'Bead Count': payload.beadCount,
+                'Length (cm)': payload.estimatedLengthCm,
+                'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', ')
+              }
+            })
+          }).then(function () { window.location.href = '/cart'; });
+        }
+      });
+    }
 
-      onSaveDesign: function (code, url) {
-        console.log('Saved design', code, url);
-      },
-    });
-  });
+    window.addEventListener('resize', fit);
+    if (document.readyState !== 'loading') init();
+    else document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('shopify:section:load', init); // theme editor re-render
+    window.addEventListener('load', init);
+  })();
 </script>
+
+{% schema %}
+{
+  "name": "Bracelet Configurator",
+  "settings": [],
+  "presets": [{ "name": "Bracelet Configurator" }]
+}
+{% endschema %}

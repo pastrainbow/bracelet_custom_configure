@@ -30,9 +30,16 @@ if (!STORE || !TOKEN || !THEME_ID) {
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = resolve(root, 'dist-widget');
+const shopifyDir = resolve(root, 'shopify');
 const stageDir = resolve(root, '.shopify-deploy');
 
-const FILES = ['bracelet-configurator.umd.js', 'bracelet-configurator.css'];
+// Files to push, as [ absolute source path, theme-relative destination ].
+// Built assets come from dist-widget/; the section is a source file in shopify/.
+const PUSH_FILES = [
+  [resolve(distDir, 'bracelet-configurator.umd.js'), 'assets/bracelet-configurator.umd.js'],
+  [resolve(distDir, 'bracelet-configurator.css'), 'assets/bracelet-configurator.css'],
+  [resolve(shopifyDir, 'bracelet-configurator.liquid'), 'sections/bracelet-configurator.liquid'],
+];
 
 // The CLI only runs `theme push` in a directory matching the default Shopify
 // theme folder structure, otherwise it prompts a confirmation we can't answer
@@ -54,8 +61,8 @@ async function stage() {
   for (const dir of THEME_DIRS) {
     await mkdir(resolve(stageDir, dir), { recursive: true });
   }
-  for (const f of FILES) {
-    await copyFile(resolve(distDir, f), resolve(stageDir, 'assets', f));
+  for (const [src, dest] of PUSH_FILES) {
+    await copyFile(src, resolve(stageDir, dest));
   }
 }
 
@@ -69,7 +76,7 @@ function push() {
     `--theme ${THEME_ID}`,
     '--nodelete',
     '--allow-live',
-    ...FILES.map((f) => `--only assets/${f}`),
+    ...PUSH_FILES.map(([, dest]) => `--only ${dest}`),
   ].join(' ');
 
   const res = spawnSync(cmd, {
