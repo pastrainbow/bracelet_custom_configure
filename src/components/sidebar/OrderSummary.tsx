@@ -8,9 +8,9 @@ export function OrderSummary() {
     <div>
       <div className="flex items-center justify-between">
         <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Order Summary</div>
-        <Badge>{`${count} bead${count !== 1 ? 's' : ''}`}</Badge>
+        <Badge className="max-[639px]:hidden">{`${count} bead${count !== 1 ? 's' : ''}`}</Badge>
       </div>
-      <div className="text-[38px] font-bold leading-none tracking-tight max-[1024px]:text-[30px] max-[639px]:text-[28px]">
+      <div className="text-[38px] font-bold leading-none tracking-tight max-[1024px]:text-[30px] max-[639px]:hidden">
         <span className="text-lg font-medium text-muted">$</span>
         {totalPrice.toFixed(2)}
       </div>

@@ -222,7 +222,7 @@ export function BraceletInfo() {
 
   return (
     <div>
-      <SectionTitle>Bracelet Info</SectionTitle>
+      <SectionTitle className="max-[639px]:hidden">Bracelet Info</SectionTitle>
 
       <div className="grid gap-2">
         <Row label="Est. Length" value={hasBeads ? `~${lengthCm} cm` : '— cm'} />
