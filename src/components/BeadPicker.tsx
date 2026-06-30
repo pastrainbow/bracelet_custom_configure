@@ -144,7 +144,17 @@ export function BeadPicker() {
         {/* Beads-only size selector beside the search bar on mobile; the full
             labelled selector above the grid is hidden on mobile to avoid a
             duplicate (see below). */}
-        {superCat === 'beads' && <AddSizeSelector compact className="min-[640px]:hidden" />}
+        {superCat === 'beads' && (
+          <div className="relative flex-shrink-0 min-[640px]:hidden">
+            <AddSizeSelector compact />
+            {/* Caption for the compact selector. Absolutely positioned so it
+                adds no height — it drops into the gap above the Beads/Accessories
+                tabs — and centered under the size buttons it labels. */}
+            <span className="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap text-[10px] font-semibold uppercase leading-none tracking-[0.06em] text-muted">
+              bead size (mm)
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="mb-2.5 border-b border-border pb-2.5 max-[639px]:mb-1 max-[639px]:pb-1.5 max-[639px]:flex-shrink-0">
