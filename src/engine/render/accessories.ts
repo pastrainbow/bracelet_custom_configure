@@ -362,18 +362,10 @@ const SHAPES: Record<AccessoryShape, ShapeFn> = {
   cross,
 };
 
-/** Draw an accessory at (x, y), rotated by `angle`, centred on the origin. */
-export function drawAccessory(
-  ctx: Ctx,
-  x: number,
-  y: number,
-  r: number,
-  def: AccessoryDef,
-  angle = 0,
-): void {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-  SHAPES[def.shape](ctx, 0, 0, r, def.color);
-  ctx.restore();
+/**
+ * Draw an accessory at (x, y). Rendered once into a sprite (see
+ * `spriteCache.ts`); orientation is applied by rotating that sprite wholesale.
+ */
+export function drawAccessory(ctx: Ctx, x: number, y: number, r: number, def: AccessoryDef): void {
+  SHAPES[def.shape](ctx, x, y, r, def.color);
 }

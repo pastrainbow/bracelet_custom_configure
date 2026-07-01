@@ -1,11 +1,14 @@
 import type { ItemDef } from '@/types';
-import { isAccessory } from '@/types';
-import { drawBead } from './bead';
-import { drawAccessory } from './accessories';
+import { getItemSprite } from './spriteCache';
 
 type Ctx = CanvasRenderingContext2D;
 
-/** Draw any catalogue item (bead or accessory) at (x, y). */
+/**
+ * Draw any catalogue item (bead or accessory) at (x, y) by blitting its
+ * cached sprite (see `spriteCache.ts`), rotated by `angle`. `dpr` selects
+ * which backing resolution of the sprite to use so it stays crisp on the
+ * destination canvas.
+ */
 export function drawItem(
   ctx: Ctx,
   x: number,
@@ -13,10 +16,12 @@ export function drawItem(
   r: number,
   def: ItemDef,
   angle = 0,
+  dpr = 1,
 ): void {
-  if (isAccessory(def)) {
-    drawAccessory(ctx, x, y, r, def, angle);
-  } else {
-    drawBead(ctx, x, y, r, def, angle);
-  }
+  const sprite = getItemSprite(def, r, dpr);
+  ctx.save();
+  ctx.translate(x, y);
+  if (angle) ctx.rotate(angle);
+  ctx.drawImage(sprite.image, -sprite.size / 2, -sprite.size / 2, sprite.size, sprite.size);
+  ctx.restore();
 }

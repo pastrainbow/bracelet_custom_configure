@@ -4,10 +4,12 @@ import { lightenHex } from './color';
 type Ctx = CanvasRenderingContext2D;
 
 /**
- * Draw a spherical bead with a fixed upper-left key light, a rotating secondary
- * shimmer (so beads visibly tumble), and rim darkening for roundness.
+ * Draw a spherical bead with a fixed upper-left key light, a secondary shimmer
+ * highlight, and rim darkening for roundness. Rendered once into a sprite (see
+ * `spriteCache.ts`); tumbling comes from rotating that sprite wholesale, the
+ * same way a rotated photo would.
  */
-export function drawBead(ctx: Ctx, x: number, y: number, r: number, def: BeadDef, angle = 0): void {
+export function drawBead(ctx: Ctx, x: number, y: number, r: number, def: BeadDef): void {
   // Base sphere with drop shadow.
   ctx.save();
   ctx.shadowColor = 'rgba(0,0,0,0.25)';
@@ -41,8 +43,8 @@ export function drawBead(ctx: Ctx, x: number, y: number, r: number, def: BeadDef
   ctx.fillStyle = spec;
   ctx.fill();
 
-  // Rotating secondary shimmer, clipped to the bead.
-  const sa = angle * 1.4;
+  // Secondary shimmer, offset from the primary highlight, clipped to the bead.
+  const sa = -0.9;
   const sx = x + r * 0.42 * Math.cos(sa);
   const sy = y + r * 0.42 * Math.sin(sa);
   const spin = ctx.createRadialGradient(sx, sy, 0, sx, sy, r * 0.38);

@@ -442,7 +442,9 @@ export class BraceletEngine {
       const a = it.targetAngle + this.braceletAngle;
       const x = cx + Math.cos(a) * R;
       const y = cy + Math.sin(a) * R;
-      drawItem(ctx, x, y, this.beadRadius(it.size) * this.fitScale * scale, it.def);
+      // Not drawn onto a dpr-scaled canvas (destinations are already sized to
+      // their final pixel resolution) — bake extra sprite resolution in directly.
+      drawItem(ctx, x, y, this.beadRadius(it.size) * this.fitScale * scale, it.def, 0, MAX_DPR);
     }
   }
 
@@ -757,7 +759,7 @@ export class BraceletEngine {
       if (item.id === draggingId) {
         Matter.Body.setPosition(item.body, { x: this.pointer.x, y: this.pointer.y });
         if (Math.hypot(this.pointer.x - cx, this.pointer.y - cy) <= this.bowlRadius) {
-          drawItem(ctx, this.pointer.x, this.pointer.y, r * 1.12, item.def, item.body.angle);
+          drawItem(ctx, this.pointer.x, this.pointer.y, r * 1.12, item.def, item.body.angle, this.dpr);
         }
         continue;
       }
@@ -781,7 +783,7 @@ export class BraceletEngine {
         }
       }
 
-      drawItem(ctx, item.body.position.x, item.body.position.y, r, item.def, item.body.angle);
+      drawItem(ctx, item.body.position.x, item.body.position.y, r, item.def, item.body.angle, this.dpr);
       if (item.id === this.selectedId) {
         drawSelectionRing(ctx, item.body.position.x, item.body.position.y, r);
       }
@@ -808,7 +810,7 @@ export class BraceletEngine {
       const px = item.startX + (tx - item.startX) * t;
       const py = item.startY + (ty - item.startY) * t;
       Matter.Body.setPosition(item.body, { x: px, y: py });
-      drawItem(ctx, px, py, r, item.def);
+      drawItem(ctx, px, py, r, item.def, 0, this.dpr);
       if (item.id === this.selectedId) drawSelectionRing(ctx, px, py, r);
     }
 
@@ -833,7 +835,7 @@ export class BraceletEngine {
       const x = cx + Math.cos(angle) * br;
       const y = cy + Math.sin(angle) * br;
       Matter.Body.setPosition(item.body, { x, y });
-      drawItem(ctx, x, y, r, item.def);
+      drawItem(ctx, x, y, r, item.def, 0, this.dpr);
       if (item.id === this.selectedId) drawSelectionRing(ctx, x, y, r);
     }
 
@@ -848,7 +850,7 @@ export class BraceletEngine {
         const x = cx + Math.cos(a) * br;
         const y = cy + Math.sin(a) * br;
         Matter.Body.setPosition(item.body, { x, y });
-        drawItem(ctx, x, y, r * 1.12, item.def);
+        drawItem(ctx, x, y, r * 1.12, item.def, 0, this.dpr);
       }
     }
   }
@@ -885,7 +887,15 @@ export class BraceletEngine {
     // Drag-out-to-delete preview while a bead is held outside the bowl.
     if (showDrag && dragItem) {
       const r = this.displayRadius(dragItem.size);
-      drawItem(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12, dragItem.def, dragItem.body.angle);
+      drawItem(
+        octx,
+        this.pointer.overlayX,
+        this.pointer.overlayY,
+        r * 1.12,
+        dragItem.def,
+        dragItem.body.angle,
+        this.dpr,
+      );
       drawTrashOverlay(octx, this.pointer.overlayX, this.pointer.overlayY, r * 1.12);
     }
 
