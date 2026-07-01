@@ -36,6 +36,8 @@ interface ConfiguratorState {
   /** Highest completed step (0–3) for the progress tracker. */
   progress: number;
   cartPending: boolean;
+  /** False while image-backed sprites are still preloading; gates the studio. */
+  catalogueReady: boolean;
   /** Whether the focused share/preview view is open. */
   shareOpen: boolean;
   /** Which control subsection the mobile tab selector shows (mobile only). */
@@ -46,6 +48,7 @@ interface ConfiguratorState {
   // wiring
   attachEngine: (engine: BraceletEngine | null) => void;
   setOptions: (options: ConfiguratorOptions) => void;
+  setCatalogueReady: (ready: boolean) => void;
   syncFromEngine: (summary: EngineSummary) => void;
   showError: (msg: string) => void;
 
@@ -82,12 +85,14 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   wristSizeCm: null,
   progress: 0,
   cartPending: false,
+  catalogueReady: true,
   shareOpen: false,
   mobilePanel: 'add',
   error: null,
 
   attachEngine: (engine) => set({ engine }),
   setOptions: (options) => set({ options }),
+  setCatalogueReady: (ready) => set({ catalogueReady: ready }),
 
   showError: (msg) => {
     if (errorTimer) clearTimeout(errorTimer);

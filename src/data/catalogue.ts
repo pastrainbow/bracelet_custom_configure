@@ -3,6 +3,8 @@ import type {
   BeadDef,
   CategoryTab,
   ItemDef,
+  RawCatalogue,
+  RawCatalogueItem,
   SuperCategory,
 } from '@/types';
 
@@ -74,9 +76,10 @@ const pendants: AccessoryDef[] = [
   { id: 'cross-silver', name: 'Silver Cross', price: 7, color: '#c0c0c0', shape: 'cross' },
 ];
 
-// ─── EXPORTS ─────────────────────────────────────────────────────────────────
+// ─── STUB CATALOGUE (dev / offline fallback) ─────────────────────────────────
+// Used by the standalone SPA and whenever the host injects no Shopify catalogue.
 
-export const CATALOGUE: Record<string, ItemDef[]> = {
+const STUB_CATALOGUE: Record<string, ItemDef[]> = {
   crystal,
   stone,
   shell,
@@ -86,7 +89,7 @@ export const CATALOGUE: Record<string, ItemDef[]> = {
   pendants,
 };
 
-export const SUPERCATS: Record<SuperCategory, CategoryTab[]> = {
+const STUB_SUPERCATS: Record<SuperCategory, CategoryTab[]> = {
   beads: [
     { cat: 'crystal', label: 'Crystal' },
     { cat: 'stone', label: 'Natural Stone' },
@@ -100,10 +103,95 @@ export const SUPERCATS: Record<SuperCategory, CategoryTab[]> = {
   ],
 };
 
+/** Display labels for known category slugs; unknown slugs are title-cased. */
+const CATEGORY_LABELS: Record<string, string> = Object.fromEntries(
+  Object.values(STUB_SUPERCATS)
+    .flat()
+    .map((t) => [t.cat, t.label]),
+);
+
+function labelFor(cat: string): string {
+  return CATEGORY_LABELS[cat] ?? cat.replace(/(^|[-_ ])(\w)/g, (_m, _s, c) => ' ' + c.toUpperCase()).trim();
+}
+
+// ─── LIVE CATALOGUE ──────────────────────────────────────────────────────────
+// These bindings start on the stub and are replaced in place by `initCatalogue`
+// (called from `mount()` before first render). Consumers import them as live
+// ES bindings, so they see whatever `initCatalogue` installs.
+
+export let CATALOGUE: Record<string, ItemDef[]> = STUB_CATALOGUE;
+export let SUPERCATS: Record<SuperCategory, CategoryTab[]> = STUB_SUPERCATS;
 /** Flat lookup of every item def by id (used to restore saved designs). */
-export const ITEM_BY_ID: Record<string, ItemDef> = Object.values(CATALOGUE)
-  .flat()
-  .reduce<Record<string, ItemDef>>((acc, def) => {
-    acc[def.id] = def;
-    return acc;
-  }, {});
+export let ITEM_BY_ID: Record<string, ItemDef> = buildIndex(STUB_CATALOGUE);
+
+/** Tag every def with its category/superCategory so `isAccessory` etc. work uniformly. */
+function annotate(catalogue: Record<string, ItemDef[]>, supercats: Record<SuperCategory, CategoryTab[]>): void {
+  for (const [superCat, tabs] of Object.entries(supercats) as [SuperCategory, CategoryTab[]][]) {
+    for (const { cat } of tabs) {
+      for (const def of catalogue[cat] ?? []) {
+        def.superCategory = superCat;
+        def.category = cat;
+      }
+    }
+  }
+}
+annotate(STUB_CATALOGUE, STUB_SUPERCATS);
+
+function buildIndex(catalogue: Record<string, ItemDef[]>): Record<string, ItemDef> {
+  return Object.values(catalogue)
+    .flat()
+    .reduce<Record<string, ItemDef>>((acc, def) => {
+      acc[def.id] = def;
+      return acc;
+    }, {});
+}
+
+/** Turn one injected item into a renderable def. The gradient/shape here is only
+ *  a neutral fallback for the rare case an image fails to load — the real look
+ *  comes from `imageUrl`. */
+function toItemDef(raw: RawCatalogueItem): ItemDef {
+  const common = {
+    id: raw.id,
+    name: raw.name,
+    price: raw.price,
+    superCategory: raw.superCategory,
+    category: raw.category,
+    imageUrl: raw.imageUrl,
+  };
+  if (raw.superCategory === 'accessories') {
+    return { ...common, shape: 'coin', color: '#c9c9c9' } satisfies AccessoryDef;
+  }
+  return {
+    ...common,
+    gradient: ['#dcdcdc', '#a9a9a9'],
+    sizes: raw.sizes && raw.sizes.length ? raw.sizes : undefined,
+  } satisfies BeadDef;
+}
+
+/**
+ * Install a host-provided (Shopify) catalogue, replacing the stub. Items are
+ * grouped into `CATALOGUE` by category and `SUPERCATS` is rebuilt preserving
+ * first-appearance order. With no payload (or an empty one) the stub is kept.
+ */
+export function initCatalogue(raw?: RawCatalogue): void {
+  if (!raw || !raw.items?.length) return;
+
+  const catalogue: Record<string, ItemDef[]> = {};
+  const superOrder: Record<SuperCategory, string[]> = { beads: [], accessories: [] };
+
+  for (const item of raw.items) {
+    const def = toItemDef(item);
+    (catalogue[item.category] ??= []).push(def);
+    const order = superOrder[item.superCategory];
+    if (order && !order.includes(item.category)) order.push(item.category);
+  }
+
+  const supercats = { beads: [], accessories: [] } as Record<SuperCategory, CategoryTab[]>;
+  for (const superCat of Object.keys(superOrder) as SuperCategory[]) {
+    supercats[superCat] = superOrder[superCat].map((cat) => ({ cat, label: labelFor(cat) }));
+  }
+
+  CATALOGUE = catalogue;
+  SUPERCATS = supercats;
+  ITEM_BY_ID = buildIndex(catalogue);
+}

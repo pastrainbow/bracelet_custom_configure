@@ -1,4 +1,4 @@
-import type { PlacedItem } from '@/types';
+import type { PlacedItem, RawCatalogue } from '@/types';
 
 /** Payload handed to the host (Shopify) when the shopper adds their design. */
 export interface AddToCartPayload {
@@ -29,6 +29,13 @@ export interface ConfiguratorOptions {
    * (mobile) and falls back to downloading the image (desktop).
    */
   onShare?: (image: Blob) => void | Promise<void>;
+  /**
+   * Catalogue of beads/accessories to offer. Normally the Liquid section injects
+   * this as a `<script id="bracelet-catalogue">` JSON block (read automatically),
+   * but a host can pass it directly here instead. When absent, the built-in stub
+   * catalogue is used.
+   */
+  catalogue?: RawCatalogue;
   /** Restore a previously saved design on mount. */
   initialDesign?: string;
   /** Override the wrist-size hint shown in the header. */

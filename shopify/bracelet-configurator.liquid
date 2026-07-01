@@ -12,6 +12,38 @@
 
 <div id="bracelet-configurator"></div>
 
+{%- comment -%}
+  Catalogue feed. Every product in the "Bracelet Configurator Items" smart
+  collection (condition: tag = `configurator`) is emitted as JSON that the widget
+  reads on mount (see readInjectedCatalogue in mount.tsx). Category and
+  super-category ride along as tags (`cat:<slug>`, `super:beads|accessories`), and
+  each sprite is a theme asset named `sprite-<handle>.png` pushed by the deploy
+  script — so no product metafields are required.
+
+  Note: `collection.products` returns up to 50 items without pagination; add a
+  {% paginate %} loop (or move to the Storefront API) if the catalogue grows past that.
+{%- endcomment -%}
+<script id="bracelet-catalogue" type="application/json">
+{%- assign cfg = collections['bracelet-configurator-items'] -%}
+{"items":[
+{%- for p in cfg.products -%}
+  {%- assign superCat = '' -%}
+  {%- assign catSlug = '' -%}
+  {%- for t in p.tags -%}
+    {%- if t contains 'super:' -%}{%- assign superCat = t | remove_first: 'super:' | strip -%}{%- endif -%}
+    {%- if t contains 'cat:' -%}{%- assign catSlug = t | remove_first: 'cat:' | strip -%}{%- endif -%}
+  {%- endfor -%}
+  {"id":{{ p.handle | json }},"name":{{ p.title | json }},"price":{{ p.price | divided_by: 100.0 }},"superCategory":{{ superCat | json }},"category":{{ catSlug | json }},"imageUrl":{{ 'sprite-' | append: p.handle | append: '.png' | asset_url | json }},"sizes":[
+    {%- assign firstSize = true -%}
+    {%- for v in p.variants -%}
+      {%- assign mm = v.option1 | remove: ' mm' | remove: 'mm' | strip -%}
+      {%- if mm != '' and mm != 'One Size' -%}{%- unless firstSize -%},{%- endunless -%}{{ mm | times: 1 }}{%- assign firstSize = false -%}{%- endif -%}
+    {%- endfor -%}
+  ]}{%- unless forloop.last -%},{%- endunless -%}
+{%- endfor -%}
+]}
+</script>
+
 {{ 'bracelet-configurator.css' | asset_url | stylesheet_tag }}
 
 {%- style -%}

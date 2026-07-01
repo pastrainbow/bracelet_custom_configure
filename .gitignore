@@ -1,6 +1,7 @@
 node_modules
 dist
 dist-widget
+dist-catalogue
 *.local
 .DS_Store
 *.tsbuildinfo

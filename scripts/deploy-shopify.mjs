@@ -11,7 +11,7 @@
 //   npm run deploy:shopify        # build + stage + push
 //   npm run deploy:upload         # stage + push (assumes dist-widget/ is fresh)
 
-import { mkdir, copyFile, rm } from 'node:fs/promises';
+import { mkdir, copyFile, rm, readdir } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -31,6 +31,7 @@ if (!STORE || !TOKEN || !THEME_ID) {
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const distDir = resolve(root, 'dist-widget');
 const shopifyDir = resolve(root, 'shopify');
+const spriteDir = resolve(root, 'dist-catalogue/assets');
 const stageDir = resolve(root, '.shopify-deploy');
 
 // Files to push, as [ absolute source path, theme-relative destination ].
@@ -40,6 +41,16 @@ const PUSH_FILES = [
   [resolve(distDir, 'bracelet-configurator.css'), 'assets/bracelet-configurator.css'],
   [resolve(shopifyDir, 'bracelet-configurator.liquid'), 'sections/bracelet-configurator.liquid'],
 ];
+
+// Bead/accessory sprite PNGs from `npm run generate:catalogue` (if present) are
+// hosted as theme assets; the Liquid section references them via asset_url.
+try {
+  const sprites = (await readdir(spriteDir)).filter((f) => f.endsWith('.png'));
+  for (const f of sprites) PUSH_FILES.push([resolve(spriteDir, f), `assets/${f}`]);
+  if (sprites.length) console.log(`Including ${sprites.length} sprite PNG(s) from dist-catalogue/assets/.`);
+} catch {
+  // No generated sprites yet — deploy just the widget. Run generate:catalogue first.
+}
 
 // The CLI only runs `theme push` in a directory matching the default Shopify
 // theme folder structure, otherwise it prompts a confirmation we can't answer

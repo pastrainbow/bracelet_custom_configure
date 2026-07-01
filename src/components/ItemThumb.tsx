@@ -37,7 +37,8 @@ function BeadThumb({ def, size }: { def: Extract<ItemDef, { gradient: [string, s
   );
 }
 
-/** Unified thumbnail that renders either a bead or an accessory. */
+/** Unified thumbnail that renders a Shopify sprite image, or falls back to the
+ *  procedural bead/accessory preview when no image is set (stub catalogue). */
 export function ItemThumb({
   def,
   size = 46,
@@ -49,7 +50,20 @@ export function ItemThumb({
 }) {
   return (
     <div className={cn('flex items-center justify-center', className)} style={{ width: size, height: size }}>
-      {isAccessory(def) ? <AccessoryThumb def={def} size={size} /> : <BeadThumb def={def} size={size} />}
+      {def.imageUrl ? (
+        <img
+          src={def.imageUrl}
+          alt={def.name}
+          width={size}
+          height={size}
+          loading="lazy"
+          className="block h-full w-full object-contain"
+        />
+      ) : isAccessory(def) ? (
+        <AccessoryThumb def={def} size={size} />
+      ) : (
+        <BeadThumb def={def} size={size} />
+      )}
     </div>
   );
 }

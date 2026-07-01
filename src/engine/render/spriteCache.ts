@@ -13,8 +13,10 @@ import { drawAccessory } from './accessories';
  * (`drawItem`, positioning, rotation) unchanged.
  */
 
-/** Extra headroom (as a multiple of diameter) so drop shadows/glow aren't clipped. */
-const SPRITE_PADDING = 1.4;
+/** Extra headroom (as a multiple of diameter) so drop shadows/glow aren't clipped.
+ *  Exported so the offline sprite generator (scripts/generate-catalogue-assets)
+ *  bakes PNGs with the exact same framing this cache expects. */
+export const SPRITE_PADDING = 1.4;
 
 /** Round cache keys to this many px so continuous resizing/tweening doesn't
  *  thrash the cache with a near-infinite number of near-identical sprites. */
@@ -31,6 +33,38 @@ export interface ItemSprite {
 
 const cache = new Map<string, ItemSprite>();
 
+// ─── Image sprites (Shopify-sourced) ─────────────────────────────────────────
+// Items with an `imageUrl` are drawn from a pre-loaded PNG instead of the
+// procedural gradient/shape. Images are loaded up front by `preloadSprites` so
+// `buildSprite` stays synchronous; a def whose image isn't ready falls back to
+// the procedural render.
+const imageCache = new Map<string, HTMLImageElement>();
+
+function loadImage(url: string): Promise<void> {
+  if (imageCache.has(url)) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    const img = new Image();
+    // Theme-asset CDN sends permissive CORS headers; requesting anonymously
+    // keeps the physics canvas untainted so the share-card export still works.
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      imageCache.set(url, img);
+      resolve();
+    };
+    img.onerror = () => resolve(); // leave it uncached → procedural fallback
+    img.src = url;
+  });
+}
+
+/** Pre-load every image-backed sprite in the catalogue. Resolves immediately
+ *  when there are none (e.g. the stub catalogue), so callers can always await. */
+export function preloadSprites(defs: ItemDef[]): Promise<void> {
+  const urls = Array.from(
+    new Set(defs.map((d) => d.imageUrl).filter((u): u is string => !!u)),
+  );
+  return Promise.all(urls.map(loadImage)).then(() => undefined);
+}
+
 function buildSprite(def: ItemDef, radius: number, dpr: number): ItemSprite {
   const size = Math.max(1, Math.ceil(radius * 2 * SPRITE_PADDING));
   const canvas = document.createElement('canvas');
@@ -39,9 +73,16 @@ function buildSprite(def: ItemDef, radius: number, dpr: number): ItemSprite {
   const ctx = canvas.getContext('2d')!;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const c = size / 2;
-  if (isAccessory(def)) drawAccessory(ctx, c, c, radius, def);
-  else drawBead(ctx, c, c, radius, def);
+  const img = def.imageUrl ? imageCache.get(def.imageUrl) : undefined;
+  if (img) {
+    // The PNG is baked with the same SPRITE_PADDING framing, so it fills the
+    // whole sprite square — matching the procedural render's placement exactly.
+    ctx.drawImage(img, 0, 0, size, size);
+  } else {
+    const c = size / 2;
+    if (isAccessory(def)) drawAccessory(ctx, c, c, radius, def);
+    else drawBead(ctx, c, c, radius, def);
+  }
 
   return { image: canvas, size };
 }

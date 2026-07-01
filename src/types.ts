@@ -1,10 +1,24 @@
 // ─── DOMAIN TYPES ────────────────────────────────────────────────────────────
 
-/** A round gemstone/crystal/stone bead rendered as a shaded sphere. */
-export interface BeadDef {
+/** Fields shared by every catalogue item, however it's rendered. */
+interface ItemCommon {
   id: string;
   name: string;
   price: number;
+  /**
+   * When present, the item is drawn from this (pre-loaded) image instead of the
+   * procedural gradient/shape — this is the seam for Shopify-sourced sprites.
+   * See `spriteCache.buildSprite` and `preloadSprites`.
+   */
+  imageUrl?: string;
+  /** Which picker super-category this item belongs to (set for Shopify items). */
+  superCategory?: SuperCategory;
+  /** Machine slug of the item's type category, e.g. `crystal` (Shopify items). */
+  category?: string;
+}
+
+/** A round gemstone/crystal/stone bead rendered as a shaded sphere. */
+export interface BeadDef extends ItemCommon {
   /** [highlight, shadow] colours for the radial gradient. */
   gradient: [string, string];
   /** Pearlescent beads get a brighter, mobile highlight. */
@@ -31,18 +45,21 @@ export type AccessoryShape =
   | 'cross';
 
 /** A charm / spacer / pendant rendered as a flat vector shape. */
-export interface AccessoryDef {
-  id: string;
-  name: string;
-  price: number;
+export interface AccessoryDef extends ItemCommon {
   color: string;
   shape: AccessoryShape;
 }
 
 export type ItemDef = BeadDef | AccessoryDef;
 
-/** Type guard: accessories carry a `shape`, beads carry a `gradient`. */
+/**
+ * Type guard for accessories. Shopify-sourced items are rendered from an image
+ * and don't carry a vector `shape`, so we key off `superCategory` when it's set
+ * (all catalogue items get one), falling back to the structural `'shape' in def`
+ * check for any def built without it.
+ */
 export function isAccessory(def: ItemDef): def is AccessoryDef {
+  if (def.superCategory) return def.superCategory === 'accessories';
   return 'shape' in def;
 }
 
@@ -63,6 +80,27 @@ export type SuperCategory = 'beads' | 'accessories';
 export interface CategoryTab {
   cat: string;
   label: string;
+}
+
+/**
+ * One catalogue item as delivered by the host (Shopify), before it's turned
+ * into a renderable `ItemDef`. Emitted by the Liquid section as JSON and read
+ * in `mount()`; see `initCatalogue`.
+ */
+export interface RawCatalogueItem {
+  id: string;
+  name: string;
+  price: number;
+  superCategory: SuperCategory;
+  category: string;
+  imageUrl?: string;
+  /** Offered diameters (mm); empty/omitted for size-agnostic accessories. */
+  sizes?: number[];
+}
+
+/** The injected catalogue payload (`<script id="bracelet-catalogue">`). */
+export interface RawCatalogue {
+  items: RawCatalogueItem[];
 }
 
 export interface TextureDef {
