@@ -102,3 +102,30 @@ its styles neither leak into nor inherit from the host theme.
 > **Note:** the store is a singleton, so one configurator per page is supported
 > (the typical product-page case). Multiple simultaneous instances would need a
 > per-instance store/context — straightforward to add if required.
+
+## Catalogue admin app
+
+A small local GUI for adding a new bead/accessory to the live catalogue —
+name, category, price, per-size stock and the sprite image — and pushing it to
+Shopify in one click:
+
+```bash
+npm run admin   # http://localhost:5190
+```
+
+Per submitted item it (1) trims + frames the uploaded image to the exact
+sprite layout the widget expects and saves it under `admin/sprites/`,
+(2) pushes it to the theme's `assets/` as `sprite-<handle>.png` via the
+Shopify CLI (Theme Access token), (3) creates the product via the Admin
+GraphQL API — handle = item id, `configurator`/`super:`/`cat:` tags, one
+"Size" variant per size with SKU and stock — and (4) publishes it to the
+Online Store channel, where the `bracelet-configurator-items` smart
+collection picks it up automatically.
+
+Step 3–4 need Admin API credentials — `SHOPIFY_CLIENT_ID` +
+`SHOPIFY_CLIENT_SECRET` from a Dev Dashboard app (exchanged automatically for
+a 24h token via the client credentials grant), or a legacy static
+`SHOPIFY_PRODUCTS_TOKEN` (see `.env.example`); without them the app still
+pushes the sprite and writes an import-ready CSV to `admin/pending-import/`
+instead. `--dry-run` (or
+`ADMIN_DRY_RUN=1`) exercises the whole flow without touching Shopify.

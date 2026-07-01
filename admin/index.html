@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Bracelet Catalogue Admin</title>
+<style>
+  :root {
+    --bg: #f6f4f1;
+    --card: #ffffff;
+    --ink: #2b2620;
+    --muted: #8a8177;
+    --line: #e7e2db;
+    --accent: #b08d57;
+    --accent-ink: #6e5433;
+    --ok: #2e7d32;
+    --warn: #b26a00;
+    --fail: #c62828;
+    --skip: #9e9e9e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 28px 20px 64px; }
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--muted); }
+  .chip.on { border-color: #cde3cd; background: #eef6ee; color: var(--ok); }
+  .chip.off { border-color: #f2ddc2; background: #fdf4e7; color: var(--warn); }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .row { display: flex; gap: 14px; }
+  .row > * { flex: 1; min-width: 0; }
+  label.f { display: block; margin-bottom: 14px; }
+  label.f > span, .flabel { display: block; font-size: 12px; font-weight: 600; color: var(--accent-ink); margin-bottom: 5px; letter-spacing: .3px; text-transform: uppercase; }
+  input[type=text], input[type=number], select {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
+    font: inherit; background: #fff; color: var(--ink); outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
+
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .seg button { border: 0; background: #fff; padding: 8px 18px; font: inherit; cursor: pointer; color: var(--muted); }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  .sizes { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .sizerow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); }
+  .sizerow:first-child { border-top: 0; }
+  .sizerow label { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+  .sizerow input[type=number] { width: 110px; }
+  .sizerow .qlabel { font-size: 12px; color: var(--muted); }
+  .sizerow.dis .qlabel, .sizerow.dis input[type=number] { opacity: .35; pointer-events: none; }
+
+  .drop {
+    border: 1.5px dashed var(--line); border-radius: 12px; padding: 14px; text-align: center;
+    color: var(--muted); cursor: pointer; transition: border-color .15s; display: flex; gap: 16px; align-items: center;
+  }
+  .drop.over { border-color: var(--accent); }
+  .drop .ph { flex: 1; }
+  .previewbox {
+    position: relative; width: 132px; height: 132px; border-radius: 10px; flex: none;
+    background: conic-gradient(#eee 25%, #fff 0 50%, #eee 0 75%, #fff 0) 0 0/16px 16px; overflow: hidden; display: none;
+  }
+  .previewbox img { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .previewbox .guide {
+    position: absolute; left: 14.28%; top: 14.28%; width: 71.43%; height: 71.43%;
+    border: 1.5px dashed rgba(176,141,87,.75); border-radius: 50%; pointer-events: none;
+  }
+
+  .actions { margin-top: 18px; display: flex; align-items: center; gap: 12px; }
+  .btn {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px; padding: 11px 22px;
+    font: inherit; font-weight: 600; cursor: pointer; letter-spacing: .2px;
+  }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .btn.ghost { background: #fff; color: var(--accent-ink); border: 1px solid var(--line); }
+  .spin { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: r 0.8s linear infinite; display: none; }
+  @keyframes r { to { transform: rotate(360deg); } }
+  .note { font-size: 12px; color: var(--muted); }
+
+  .steps { margin-top: 18px; display: none; }
+  .step { display: flex; gap: 10px; padding: 10px 4px; border-top: 1px solid var(--line); }
+  .step .ic { flex: none; width: 20px; text-align: center; }
+  .step .nm { font-weight: 600; }
+  .step .dt { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+  .step.done .ic { color: var(--ok); }
+  .step.warn .ic { color: var(--warn); }
+  .step.fail .ic { color: var(--fail); }
+  .step.skip .ic { color: var(--skip); }
+  .banner { display: none; margin-top: 16px; padding: 10px 14px; border-radius: 10px; font-weight: 600; }
+  .banner.ok { display: block; background: #eef6ee; color: var(--ok); }
+  .banner.bad { display: block; background: #fdecec; color: var(--fail); }
+  .err { color: var(--fail); font-size: 12.5px; margin-top: 10px; display: none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Bracelet Catalogue Admin</h1>
+    <div class="chips">
+      <span class="chip" id="chipStore">store: …</span>
+      <span class="chip" id="chipTheme">sprite push</span>
+      <span class="chip" id="chipProducts">products API</span>
+    </div>
+  </header>
+  <p class="sub">Add a bead or accessory to the configurator — sprite, details and per-size stock — and push it straight to Shopify.</p>
+
+  <form class="card" id="form">
+    <label class="f">
+      <span>Item type</span>
+      <span class="seg" id="typeSeg">
+        <button type="button" data-v="beads" class="on">Bead</button>
+        <button type="button" data-v="accessories">Accessory</button>
+      </span>
+    </label>
+
+    <div class="row">
+      <label class="f">
+        <span>Name</span>
+        <input type="text" id="name" placeholder="e.g. Rose Quartz" autocomplete="off" />
+      </label>
+      <label class="f">
+        <span>Item id (handle)</span>
+        <input type="text" id="handle" placeholder="rose-quartz" autocomplete="off" spellcheck="false" />
+        <div class="hint">Permanent id used in design codes &amp; the sprite filename.</div>
+      </label>
+    </div>
+
+    <div class="row">
+      <label class="f">
+        <span>Category</span>
+        <select id="category"></select>
+      </label>
+      <label class="f" id="customCatWrap" style="display:none">
+        <span>New category slug</span>
+        <input type="text" id="customCat" placeholder="e.g. glass" spellcheck="false" />
+        <div class="hint">Shown as a new tab, title-cased.</div>
+      </label>
+      <label class="f">
+        <span>Base price</span>
+        <input type="number" id="price" min="0.01" step="0.01" placeholder="4.00" />
+        <div class="hint">Per bead; same across sizes.</div>
+      </label>
+    </div>
+
+    <div class="f">
+      <span class="flabel" id="sizesLabel">Sizes &amp; stock</span>
+      <div class="sizes" id="sizes"></div>
+      <div class="hint" id="sizesHint">Tick the sizes offered and enter the stock on hand for each.</div>
+    </div>
+
+    <div class="f">
+      <span class="flabel">Sprite image</span>
+      <div class="drop" id="drop">
+        <div class="ph" id="dropText">
+          <strong>Click or drop an image</strong><br />
+          Transparent PNG, item centred. It’s auto-trimmed and framed for the widget.
+        </div>
+        <div class="previewbox" id="previewBox">
+          <img id="previewImg" alt="sprite preview" />
+          <div class="guide"></div>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/png,image/webp,image/jpeg" hidden />
+      <div class="hint">Dashed circle = the bead’s physical extent in the widget.</div>
+    </div>
+
+    <div class="err" id="err"></div>
+
+    <div class="actions">
+      <button class="btn" type="submit" id="submit">Add &amp; push to Shopify</button>
+      <div class="spin" id="spin"></div>
+      <span class="note" id="busyNote" style="display:none">Pushing… the theme upload can take a minute.</span>
+      <button class="btn ghost" type="button" id="reset" style="display:none">Add another item</button>
+    </div>
+
+    <div class="banner" id="banner"></div>
+    <div class="steps" id="steps"></div>
+  </form>
+</div>
+
+<script>
+(async function () {
+  const $ = (id) => document.getElementById(id);
+
+  let cfg;
+  try {
+    const r = await fetch('/api/config');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    cfg = await r.json();
+  } catch {
+    // Without the config the form can't work at all — say so instead of
+    // leaving a dead page.
+    $('chipStore').textContent = 'server unreachable';
+    $('err').textContent = 'Could not reach the admin server (/api/config failed). Is "npm run admin" still running? Restart it and reload this page.';
+    $('err').style.display = 'block';
+    $('submit').disabled = true;
+    return;
+  }
+
+  $('chipStore').textContent = cfg.store ? cfg.store.replace('.myshopify.com', '') : 'no store in .env';
+  $('chipTheme').textContent = 'sprite push ' + (cfg.themeConfigured ? '✓' : '✗');
+  $('chipTheme').className = 'chip ' + (cfg.themeConfigured ? 'on' : 'off');
+  $('chipProducts').textContent = cfg.productsConfigured ? 'products API ✓' : 'products API ✗ (CSV fallback)';
+  $('chipProducts').className = 'chip ' + (cfg.productsConfigured ? 'on' : 'off');
+  if (cfg.dryRun) {
+    const c = document.createElement('span');
+    c.className = 'chip off';
+    c.textContent = 'DRY RUN';
+    document.querySelector('.chips').appendChild(c);
+  }
+
+  let superCategory = 'beads';
+  let handleTouched = false;
+  let imageDataUrl = null;
+
+  // ── type toggle ──
+  $('typeSeg').addEventListener('click', (e) => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    superCategory = btn.dataset.v;
+    for (const b of $('typeSeg').children) b.classList.toggle('on', b === btn);
+    renderCategories();
+    renderSizes();
+  });
+
+  // ── name → handle slug ──
+  const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  $('name').addEventListener('input', () => {
+    if (!handleTouched) $('handle').value = slugify($('name').value);
+  });
+  $('handle').addEventListener('input', () => { handleTouched = $('handle').value !== ''; });
+
+  // ── categories ──
+  function renderCategories() {
+    const sel = $('category');
+    sel.innerHTML = '';
+    for (const { cat, label } of cfg.categories[superCategory]) {
+      sel.add(new Option(`${label} (${cat})`, cat));
+    }
+    sel.add(new Option('New category…', '__new'));
+    sel.onchange = () => {
+      $('customCatWrap').style.display = sel.value === '__new' ? '' : 'none';
+    };
+    sel.onchange();
+  }
+
+  // ── sizes ──
+  function renderSizes() {
+    const box = $('sizes');
+    box.innerHTML = '';
+    if (superCategory === 'accessories') {
+      $('sizesLabel').textContent = 'Stock';
+      $('sizesHint').textContent = 'Accessories are one-size; enter the stock on hand.';
+      box.insertAdjacentHTML('beforeend',
+        `<div class="sizerow">
+           <label><strong>One Size</strong></label>
+           <span class="qlabel">stock</span>
+           <input type="number" min="0" step="1" value="10" data-qty="one" />
+         </div>`);
+      return;
+    }
+    $('sizesLabel').textContent = 'Sizes & stock';
+    $('sizesHint').textContent = 'Tick the sizes offered and enter the stock on hand for each.';
+    for (const mm of cfg.beadSizes) {
+      const row = document.createElement('div');
+      row.className = 'sizerow';
+      row.innerHTML =
+        `<label><input type="checkbox" data-mm="${mm}" checked /> <strong>${mm} mm</strong></label>
+         <span class="qlabel">stock</span>
+         <input type="number" min="0" step="1" value="10" data-qty="${mm}" />`;
+      row.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
+        row.classList.toggle('dis', !e.target.checked);
+      });
+      box.appendChild(row);
+    }
+  }
+
+  renderCategories();
+  renderSizes();
+
+  // ── sprite upload + server-side preview ──
+  const drop = $('drop');
+  drop.addEventListener('click', () => $('file').click());
+  drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
+  drop.addEventListener('dragleave', () => drop.classList.remove('over'));
+  drop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    drop.classList.remove('over');
+    if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
+  });
+  $('file').addEventListener('change', () => { if ($('file').files[0]) loadFile($('file').files[0]); });
+
+  function loadFile(file) {
+    const reader = new FileReader();
+    reader.onerror = () => showError(`Could not read "${file.name}" — try re-selecting the file.`);
+    reader.onload = async () => {
+      imageDataUrl = reader.result;
+      $('dropText').innerHTML = `<strong>${file.name}</strong><br />Framed preview → (click to replace)`;
+      try {
+        const res = await fetch('/api/preview', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image: imageDataUrl }),
+        }).then((r) => r.json());
+        if (res.sprite) {
+          $('previewImg').src = res.sprite;
+          $('previewBox').style.display = 'block';
+        } else {
+          showError(res.error || 'Could not process the image.');
+          imageDataUrl = null;
+        }
+      } catch {
+        showError('Preview failed — is the server still running?');
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ── submit ──
+  function showError(msg) {
+    $('err').textContent = msg;
+    $('err').style.display = msg ? 'block' : 'none';
+  }
+
+  function collect() {
+    const name = $('name').value.trim();
+    const handle = $('handle').value.trim();
+    const category = $('category').value === '__new' ? $('customCat').value.trim() : $('category').value;
+    const price = parseFloat($('price').value);
+    if (!name) throw new Error('Enter a name.');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) throw new Error('Item id must be a lowercase slug, e.g. "rose-quartz".');
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category)) throw new Error('Category must be a lowercase slug.');
+    if (!(price > 0)) throw new Error('Enter a price.');
+    if (!imageDataUrl) throw new Error('Add a sprite image.');
+
+    const sizes = [];
+    if (superCategory === 'accessories') {
+      sizes.push({ mm: null, qty: parseInt(document.querySelector('[data-qty=one]').value, 10) });
+    } else {
+      for (const cb of document.querySelectorAll('#sizes input[type=checkbox]:checked')) {
+        const mm = Number(cb.dataset.mm);
+        sizes.push({ mm, qty: parseInt(document.querySelector(`[data-qty="${mm}"]`).value, 10) });
+      }
+      if (!sizes.length) throw new Error('Tick at least one size.');
+    }
+    for (const s of sizes) {
+      if (!Number.isInteger(s.qty) || s.qty < 0) throw new Error('Stock must be a whole number ≥ 0.');
+    }
+    return { name, handle, superCategory, category, price, sizes, image: imageDataUrl };
+  }
+
+  const ICONS = { done: '✓', warn: '⚠', fail: '✕', skip: '–' };
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    showError('');
+    $('banner').className = 'banner';
+    $('steps').style.display = 'none';
+
+    let payload;
+    try { payload = collect(); } catch (err) { showError(err.message); return; }
+
+    $('submit').disabled = true;
+    $('spin').style.display = 'block';
+    $('busyNote').style.display = '';
+    try {
+      const res = await fetch('/api/items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).then((r) => r.json());
+
+      if (res.error) { showError(res.error); return; }
+
+      const stepsEl = $('steps');
+      stepsEl.innerHTML = '';
+      for (const s of res.steps) {
+        const div = document.createElement('div');
+        div.className = 'step ' + s.status;
+        div.innerHTML = `<div class="ic">${ICONS[s.status] || '?'}</div>
+          <div><div class="nm"></div><div class="dt"></div></div>`;
+        div.querySelector('.nm').textContent = s.name;
+        div.querySelector('.dt').textContent = s.detail;
+        stepsEl.appendChild(div);
+      }
+      stepsEl.style.display = 'block';
+      $('banner').className = 'banner ' + (res.ok ? 'ok' : 'bad');
+      $('banner').textContent = res.ok
+        ? `"${payload.name}" pushed. Hard-refresh the store page (Ctrl+Shift+R) to see it.`
+        : 'Some steps failed — see below.';
+      if (res.ok) {
+        $('submit').style.display = 'none';
+        $('reset').style.display = '';
+      }
+    } catch {
+      showError('Request failed — is the server still running?');
+    } finally {
+      $('submit').disabled = false;
+      $('spin').style.display = 'none';
+      $('busyNote').style.display = 'none';
+    }
+  });
+
+  $('reset').addEventListener('click', () => {
+    $('form').reset();
+    handleTouched = false;
+    imageDataUrl = null;
+    $('previewBox').style.display = 'none';
+    $('dropText').innerHTML = '<strong>Click or drop an image</strong><br />Transparent PNG, item centred. It’s auto-trimmed and framed for the widget.';
+    $('banner').className = 'banner';
+    $('steps').style.display = 'none';
+    $('submit').style.display = '';
+    $('reset').style.display = 'none';
+    renderCategories();
+    renderSizes();
+  });
+})();
+</script>
+</body>
+</html>

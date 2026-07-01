@@ -22,6 +22,9 @@ export function ShareView() {
   const options = useStore((s) => s.options);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sharing, setSharing] = useState(false);
+  // Errors are shown inside this view: the global ErrorToast renders under the
+  // z-[1000] overlay, so it would be invisible while sharing.
+  const [shareError, setShareError] = useState<string | null>(null);
 
   const brandName = options.brandName ?? 'Stone Studio';
   const tagline = options.brandTagline ?? 'Undefined nature, undefined you.';
@@ -29,6 +32,7 @@ export function ShareView() {
   // Draw the bracelet (no bowl) whenever the view opens.
   useEffect(() => {
     if (!shareOpen) return;
+    setShareError(null);
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || !engine) return;
@@ -79,20 +83,21 @@ export function ShareView() {
   const handleShare = async () => {
     if (!engine || sharing) return;
     setSharing(true);
+    setShareError(null);
     try {
       // Compose the branded share card off-screen at full resolution.
       const off = document.createElement('canvas');
       off.width = CARD_W;
       off.height = CARD_H;
       const ctx = off.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) throw new Error('canvas 2d context unavailable');
       drawShareBackground(ctx, CARD_W, CARD_H);
       drawShareBrand(ctx, CARD_W, brandName, tagline);
       engine.drawBraceletPortrait(ctx, CARD_W / 2, CARD_H * 0.56, CARD_W * 0.33);
       drawShareWatermark(ctx, CARD_W, CARD_H, brandName);
 
       const blob = await new Promise<Blob | null>((resolve) => off.toBlob(resolve, 'image/png'));
-      if (!blob) return;
+      if (!blob) throw new Error('canvas export produced no image');
 
       if (options.onShare) {
         await options.onShare(blob);
@@ -117,6 +122,10 @@ export function ShareView() {
         a.remove();
         URL.revokeObjectURL(url);
       }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[BraceletConfigurator] share failed', err);
+      setShareError('Sharing failed — please try again.');
     } finally {
       setSharing(false);
     }
@@ -161,6 +170,15 @@ export function ShareView() {
           <X size={18} />
         </button>
       </div>
+
+      {shareError && (
+        <div
+          role="alert"
+          className="absolute left-1/2 top-20 -translate-x-1/2 rounded-lg bg-red-600 px-4 py-2 text-[13px] font-medium text-white shadow-float"
+        >
+          {shareError}
+        </div>
+      )}
 
       {/* Bracelet — vertically + horizontally centred in the viewport, zooms in */}
       <canvas

@@ -174,12 +174,33 @@ function toItemDef(raw: RawCatalogueItem): ItemDef {
  * first-appearance order. With no payload (or an empty one) the stub is kept.
  */
 export function initCatalogue(raw?: RawCatalogue): void {
-  if (!raw || !raw.items?.length) return;
+  if (!raw || !Array.isArray(raw.items) || !raw.items.length) return;
+
+  // Drop malformed entries (e.g. a store product missing its `super:`/`cat:`
+  // tags emits empty fields from the Liquid feed) instead of letting them
+  // group under `undefined` and disappear without a trace.
+  const items = raw.items.filter(
+    (it) =>
+      it &&
+      typeof it.id === 'string' && it.id &&
+      typeof it.name === 'string' && it.name &&
+      Number.isFinite(it.price) &&
+      (it.superCategory === 'beads' || it.superCategory === 'accessories') &&
+      typeof it.category === 'string' && it.category,
+  );
+  if (items.length < raw.items.length) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[BraceletConfigurator] skipped ${raw.items.length - items.length} malformed catalogue item(s) — ` +
+        'check each product has "super:beads|accessories" and "cat:<slug>" tags.',
+    );
+  }
+  if (!items.length) return; // nothing usable — keep the stub catalogue
 
   const catalogue: Record<string, ItemDef[]> = {};
   const superOrder: Record<SuperCategory, string[]> = { beads: [], accessories: [] };
 
-  for (const item of raw.items) {
+  for (const item of items) {
     const def = toItemDef(item);
     (catalogue[item.category] ??= []).push(def);
     const order = superOrder[item.superCategory];

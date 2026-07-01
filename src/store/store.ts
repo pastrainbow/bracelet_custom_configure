@@ -167,6 +167,12 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
       try {
         set({ cartPending: true });
         await options.onAddToCart(payload);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[BraceletConfigurator] add-to-cart failed', err);
+        get().showError(
+          err instanceof Error && err.message ? err.message : 'Could not add to cart — please try again.',
+        );
       } finally {
         set({ cartPending: false });
       }

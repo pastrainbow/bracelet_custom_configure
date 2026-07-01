@@ -1,0 +1,33 @@
+[
+  {
+    "name": "DEBUG TEST",
+    "handle": "debug-test",
+    "superCategory": "beads",
+    "category": "crystal",
+    "price": 67,
+    "variants": [
+      {
+        "label": "6 mm",
+        "sku": "debug-test-6",
+        "qty": 10
+      },
+      {
+        "label": "10 mm",
+        "sku": "debug-test-10",
+        "qty": 10
+      },
+      {
+        "label": "12 mm",
+        "sku": "debug-test-12",
+        "qty": 10
+      },
+      {
+        "label": "14 mm",
+        "sku": "debug-test-14",
+        "qty": 10
+      }
+    ],
+    "mode": "api",
+    "addedAt": "2026-07-01T20:15:52.635Z"
+  }
+]

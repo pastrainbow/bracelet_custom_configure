@@ -78,6 +78,15 @@
       el.style.height = Math.max(560, window.innerHeight - top) + 'px';
     }
 
+    // Shown if the widget bundle failed to load or crashed while mounting —
+    // otherwise the section is just silently blank.
+    function showLoadFailure(el) {
+      el.innerHTML =
+        '<p style="padding:48px 24px;text-align:center;font-size:14px;color:#6b6b6b;">' +
+        'The bracelet builder could not load. Please refresh the page.' +
+        '</p>';
+    }
+
     function init() {
       if (!window.BraceletConfigurator) return;
       var el = document.querySelector(SELECTOR);
@@ -85,25 +94,40 @@
       el.dataset.mounted = '1';
       fit();
 
-      window.BraceletConfigurator.mount(el, {
-        wristHint: 'Wrist size: 15.5 – 16.5 cm',
-        onAddToCart: function (payload) {
-          return fetch('/cart/add.js', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: {{ product.selected_or_first_available_variant.id | json }},
-              quantity: 1,
-              properties: {
-                'Design': payload.designCode,
-                'Bead Count': payload.beadCount,
-                'Length (cm)': payload.estimatedLengthCm,
-                'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', ')
+      try {
+        window.BraceletConfigurator.mount(el, {
+          wristHint: 'Wrist size: 15.5 – 16.5 cm',
+          onAddToCart: function (payload) {
+            return fetch('/cart/add.js', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                id: {{ product.selected_or_first_available_variant.id | json }},
+                quantity: 1,
+                properties: {
+                  'Design': payload.designCode,
+                  'Bead Count': payload.beadCount,
+                  'Length (cm)': payload.estimatedLengthCm,
+                  'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', ')
+                }
+              })
+            }).then(function (r) {
+              if (!r.ok) {
+                // Shopify's cart error body carries a shopper-readable
+                // `description` (e.g. sold out); rethrow it so the widget's
+                // error toast shows it instead of redirecting anyway.
+                return r.json().catch(function () { return {}; }).then(function (data) {
+                  throw new Error(data.description || data.message || 'Could not add to cart — please try again.');
+                });
               }
-            })
-          }).then(function () { window.location.href = '/cart'; });
-        }
-      });
+              window.location.href = '/cart';
+            });
+          }
+        });
+      } catch (err) {
+        console.error('[BraceletConfigurator] mount failed', err);
+        showLoadFailure(el);
+      }
     }
 
     window.addEventListener('resize', fit);
@@ -111,6 +135,12 @@
     else document.addEventListener('DOMContentLoaded', init);
     document.addEventListener('shopify:section:load', init); // theme editor re-render
     window.addEventListener('load', init);
+    window.addEventListener('load', function () {
+      // Past window.load the deferred bundle has run (or failed); if nothing
+      // mounted by now the script didn't load — tell the shopper.
+      var el = document.querySelector(SELECTOR);
+      if (el && !el.dataset.mounted) showLoadFailure(el);
+    });
   })();
 </script>
 

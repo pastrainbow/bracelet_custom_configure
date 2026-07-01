@@ -1,5 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './App';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useStore } from './store/store';
 import { CATALOGUE, initCatalogue } from './data/catalogue';
 import { preloadSprites } from './engine/render/spriteCache';
@@ -60,14 +61,24 @@ export function mount(
   const defs = Object.values(CATALOGUE).flat();
   if (defs.some((d) => d.imageUrl)) {
     useStore.getState().setCatalogueReady(false);
-    preloadSprites(defs).finally(() => useStore.getState().setCatalogueReady(true));
+    // A stalled image request (no load OR error event) must never gate the
+    // studio forever — cap the wait; late arrivals still land in the cache and
+    // any still-missing sprite falls back to the procedural render.
+    const preloadCap = new Promise<void>((r) => setTimeout(r, 10_000));
+    Promise.race([preloadSprites(defs), preloadCap]).finally(() =>
+      useStore.getState().setCatalogueReady(true),
+    );
   }
 
   // Seed options before first render so the engine can load any initial design.
   useStore.getState().setOptions(options);
 
   const root: Root = createRoot(el);
-  root.render(<App options={options} />);
+  root.render(
+    <ErrorBoundary>
+      <App options={options} />
+    </ErrorBoundary>,
+  );
 
   return {
     unmount: () => root.unmount(),

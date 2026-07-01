@@ -42,14 +42,19 @@ const PUSH_FILES = [
   [resolve(shopifyDir, 'bracelet-configurator.liquid'), 'sections/bracelet-configurator.liquid'],
 ];
 
-// Bead/accessory sprite PNGs from `npm run generate:catalogue` (if present) are
-// hosted as theme assets; the Liquid section references them via asset_url.
-try {
-  const sprites = (await readdir(spriteDir)).filter((f) => f.endsWith('.png'));
-  for (const f of sprites) PUSH_FILES.push([resolve(spriteDir, f), `assets/${f}`]);
-  if (sprites.length) console.log(`Including ${sprites.length} sprite PNG(s) from dist-catalogue/assets/.`);
-} catch {
-  // No generated sprites yet — deploy just the widget. Run generate:catalogue first.
+// Bead/accessory sprite PNGs are hosted as theme assets; the Liquid section
+// references them via asset_url. Two sources: `npm run generate:catalogue`
+// (dist-catalogue/assets/) and the local admin app (admin/sprites/ — items
+// added after the initial import; that dir survives catalogue regeneration).
+// Admin sprites are pushed last so they win on a filename collision.
+for (const dir of [spriteDir, resolve(root, 'admin/sprites')]) {
+  try {
+    const sprites = (await readdir(dir)).filter((f) => f.endsWith('.png'));
+    for (const f of sprites) PUSH_FILES.push([resolve(dir, f), `assets/${f}`]);
+    if (sprites.length) console.log(`Including ${sprites.length} sprite PNG(s) from ${dir}.`);
+  } catch {
+    // Directory absent — nothing generated/added yet.
+  }
 }
 
 // The CLI only runs `theme push` in a directory matching the default Shopify
@@ -73,7 +78,18 @@ async function stage() {
     await mkdir(resolve(stageDir, dir), { recursive: true });
   }
   for (const [src, dest] of PUSH_FILES) {
-    await copyFile(src, resolve(stageDir, dest));
+    try {
+      await copyFile(src, resolve(stageDir, dest));
+    } catch (err) {
+      if (err.code === 'ENOENT') {
+        console.error(
+          `Missing ${src}.\n` +
+            'Run "npm run build:widget" first, or use "npm run deploy:shopify" which builds automatically.',
+        );
+        process.exit(1);
+      }
+      throw err;
+    }
   }
 }
 
