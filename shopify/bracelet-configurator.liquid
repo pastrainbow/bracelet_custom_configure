@@ -15,7 +15,9 @@
 {%- comment -%}
   Catalogue feed. Every product in the "Bracelet Configurator Items" smart
   collection (condition: tag = `configurator`) is emitted as JSON that the widget
-  reads on mount (see readInjectedCatalogue in mount.tsx). Category and
+  reads on mount (see readInjectedCatalogue in mount.tsx). Bead prices are
+  per-size, taken from each "<mm> mm" variant's own price; accessories use the
+  product price. Category and
   super-category ride along as tags (`cat:<slug>`, `super:beads|accessories`), and
   each sprite is a theme asset named `sprite-<handle>.png` pushed by the deploy
   script — so no product metafields are required.
@@ -33,7 +35,14 @@
     {%- if t contains 'super:' -%}{%- assign superCat = t | remove_first: 'super:' | strip -%}{%- endif -%}
     {%- if t contains 'cat:' -%}{%- assign catSlug = t | remove_first: 'cat:' | strip -%}{%- endif -%}
   {%- endfor -%}
-  {"id":{{ p.handle | json }},"name":{{ p.title | json }},"price":{{ p.price | divided_by: 100.0 }},"superCategory":{{ superCat | json }},"category":{{ catSlug | json }},"imageUrl":{{ 'sprite-' | append: p.handle | append: '.png' | asset_url | json }},"sizes":[
+  {"id":{{ p.handle | json }},"name":{{ p.title | json }},"price":{{ p.price | divided_by: 100.0 }},"prices":{
+    {%- comment -%} Per-size bead prices: one entry per "<mm> mm" variant, from that variant's own price. Empty for one-size accessories (they use "price"). {%- endcomment -%}
+    {%- assign firstPrice = true -%}
+    {%- for v in p.variants -%}
+      {%- assign mm = v.option1 | remove: ' mm' | remove: 'mm' | strip -%}
+      {%- if mm != '' and mm != 'One Size' -%}{%- unless firstPrice -%},{%- endunless -%}"{{ mm | times: 1 }}":{{ v.price | divided_by: 100.0 }}{%- assign firstPrice = false -%}{%- endif -%}
+    {%- endfor -%}
+  },"superCategory":{{ superCat | json }},"category":{{ catSlug | json }},"imageUrl":{{ 'sprite-' | append: p.handle | append: '.png' | asset_url | json }},"sizes":[
     {%- assign firstSize = true -%}
     {%- for v in p.variants -%}
       {%- assign mm = v.option1 | remove: ' mm' | remove: 'mm' | strip -%}

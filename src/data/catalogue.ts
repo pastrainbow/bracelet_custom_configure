@@ -7,46 +7,52 @@ import type {
   RawCatalogueItem,
   SuperCategory,
 } from '@/types';
+import { expandBasePrice } from '@/data/pricing';
 
 // ─── BEAD CATEGORIES ─────────────────────────────────────────────────────────
 
+// Stub bead prices are authored as a 10 mm base price expanded into the
+// per-size map every bead def carries (`prices`); restricted-size beads only
+// get prices for the sizes they offer.
+const p = expandBasePrice;
+
 const crystal: BeadDef[] = [
-  { id: 'white-crystal', name: 'White Crystal', price: 2, gradient: ['#f8f8ff', '#e8e8f0'], shimmer: true },
-  { id: 'rose-quartz', name: 'Rose Quartz', price: 3, gradient: ['#f9c5d1', '#f48fb1'] },
-  { id: 'amethyst', name: 'Amethyst', price: 4, gradient: ['#9c72b5', '#6a3fa1'] },
-  { id: 'citrine', name: 'Citrine', price: 3, gradient: ['#f5c842', '#e8a800'] },
-  { id: 'aquamarine', name: 'Aquamarine', price: 5, gradient: ['#7ec8e3', '#0b8dba'] },
-  { id: 'obsidian', name: 'Obsidian', price: 3, gradient: ['#2c2c2c', '#111111'] },
-  { id: 'moonstone', name: 'Moonstone', price: 6, gradient: ['#d4e8f5', '#a8d0ed'], shimmer: true, sizes: [10, 12, 14] },
-  { id: 'labradorite', name: 'Labradorite', price: 7, gradient: ['#5c7a8a', '#3a566a'], sizes: [10, 12, 14] },
-  { id: 'turquoise', name: 'Turquoise', price: 5, gradient: ['#40e0d0', '#1aa090'] },
-  { id: 'sunstone', name: 'Sunstone', price: 6, gradient: ['#ff9a3c', '#e06b00'], sizes: [6, 10] },
+  { id: 'white-crystal', name: 'White Crystal', prices: p(2), gradient: ['#f8f8ff', '#e8e8f0'], shimmer: true },
+  { id: 'rose-quartz', name: 'Rose Quartz', prices: p(3), gradient: ['#f9c5d1', '#f48fb1'] },
+  { id: 'amethyst', name: 'Amethyst', prices: p(4), gradient: ['#9c72b5', '#6a3fa1'] },
+  { id: 'citrine', name: 'Citrine', prices: p(3), gradient: ['#f5c842', '#e8a800'] },
+  { id: 'aquamarine', name: 'Aquamarine', prices: p(5), gradient: ['#7ec8e3', '#0b8dba'] },
+  { id: 'obsidian', name: 'Obsidian', prices: p(3), gradient: ['#2c2c2c', '#111111'] },
+  { id: 'moonstone', name: 'Moonstone', prices: p(6, [10, 12, 14]), gradient: ['#d4e8f5', '#a8d0ed'], shimmer: true, sizes: [10, 12, 14] },
+  { id: 'labradorite', name: 'Labradorite', prices: p(7, [10, 12, 14]), gradient: ['#5c7a8a', '#3a566a'], sizes: [10, 12, 14] },
+  { id: 'turquoise', name: 'Turquoise', prices: p(5), gradient: ['#40e0d0', '#1aa090'] },
+  { id: 'sunstone', name: 'Sunstone', prices: p(6, [6, 10]), gradient: ['#ff9a3c', '#e06b00'], sizes: [6, 10] },
 ];
 
 const stone: BeadDef[] = [
-  { id: 'marble', name: 'White Marble', price: 4, gradient: ['#f0ede8', '#d8d4cc'] },
-  { id: 'black-onyx', name: 'Black Onyx', price: 3, gradient: ['#1a1a1a', '#050505'] },
-  { id: 'tiger-eye', name: 'Tiger Eye', price: 4, gradient: ['#c8860a', '#8b5e0a'] },
-  { id: 'jade', name: 'Jade', price: 8, gradient: ['#5da85d', '#2d7a2d'], sizes: [6, 10, 12] },
-  { id: 'lapis', name: 'Lapis Lazuli', price: 6, gradient: ['#1a3a7a', '#0d2050'] },
-  { id: 'red-agate', name: 'Red Agate', price: 3, gradient: ['#c0392b', '#922b21'] },
-  { id: 'jasper', name: 'Jasper', price: 3, gradient: ['#8b4513', '#5a2d0c'] },
-  { id: 'malachite', name: 'Malachite', price: 7, gradient: ['#2e8b57', '#145a32'] },
+  { id: 'marble', name: 'White Marble', prices: p(4), gradient: ['#f0ede8', '#d8d4cc'] },
+  { id: 'black-onyx', name: 'Black Onyx', prices: p(3), gradient: ['#1a1a1a', '#050505'] },
+  { id: 'tiger-eye', name: 'Tiger Eye', prices: p(4), gradient: ['#c8860a', '#8b5e0a'] },
+  { id: 'jade', name: 'Jade', prices: p(8, [6, 10, 12]), gradient: ['#5da85d', '#2d7a2d'], sizes: [6, 10, 12] },
+  { id: 'lapis', name: 'Lapis Lazuli', prices: p(6), gradient: ['#1a3a7a', '#0d2050'] },
+  { id: 'red-agate', name: 'Red Agate', prices: p(3), gradient: ['#c0392b', '#922b21'] },
+  { id: 'jasper', name: 'Jasper', prices: p(3), gradient: ['#8b4513', '#5a2d0c'] },
+  { id: 'malachite', name: 'Malachite', prices: p(7), gradient: ['#2e8b57', '#145a32'] },
 ];
 
 const shell: BeadDef[] = [
-  { id: 'pearl', name: 'Pearl', price: 8, gradient: ['#faf9f6', '#e8e4de'], shimmer: true, sizes: [6, 10, 12] },
-  { id: 'abalone', name: 'Abalone', price: 10, gradient: ['#6bbfbf', '#4a9fa0'] },
-  { id: 'mother-pearl', name: 'Mother of Pearl', price: 7, gradient: ['#f0ece8', '#c8c0b8'], shimmer: true },
-  { id: 'paua', name: 'Paua Shell', price: 9, gradient: ['#5040a0', '#302060'] },
+  { id: 'pearl', name: 'Pearl', prices: p(8, [6, 10, 12]), gradient: ['#faf9f6', '#e8e4de'], shimmer: true, sizes: [6, 10, 12] },
+  { id: 'abalone', name: 'Abalone', prices: p(10), gradient: ['#6bbfbf', '#4a9fa0'] },
+  { id: 'mother-pearl', name: 'Mother of Pearl', prices: p(7), gradient: ['#f0ece8', '#c8c0b8'], shimmer: true },
+  { id: 'paua', name: 'Paua Shell', prices: p(9), gradient: ['#5040a0', '#302060'] },
 ];
 
 const accent: BeadDef[] = [
-  { id: 'gold-spacer', name: 'Gold Spacer', price: 2, gradient: ['#d4af37', '#b8960c'] },
-  { id: 'silver-spacer', name: 'Silver Spacer', price: 2, gradient: ['#c0c0c0', '#909090'] },
-  { id: 'hematite', name: 'Hematite', price: 2, gradient: ['#4a4a4a', '#2a2a2a'] },
-  { id: 'pyrite', name: 'Pyrite', price: 3, gradient: ['#c8b850', '#a09030'] },
-  { id: 'clear-quartz', name: 'Clear Quartz', price: 2, gradient: ['#e8f4ff', '#cce0ff'], shimmer: true },
+  { id: 'gold-spacer', name: 'Gold Spacer', prices: p(2), gradient: ['#d4af37', '#b8960c'] },
+  { id: 'silver-spacer', name: 'Silver Spacer', prices: p(2), gradient: ['#c0c0c0', '#909090'] },
+  { id: 'hematite', name: 'Hematite', prices: p(2), gradient: ['#4a4a4a', '#2a2a2a'] },
+  { id: 'pyrite', name: 'Pyrite', prices: p(3), gradient: ['#c8b850', '#a09030'] },
+  { id: 'clear-quartz', name: 'Clear Quartz', prices: p(2), gradient: ['#e8f4ff', '#cce0ff'], shimmer: true },
 ];
 
 // ─── ACCESSORY CATEGORIES ────────────────────────────────────────────────────
@@ -146,6 +152,19 @@ function buildIndex(catalogue: Record<string, ItemDef[]>): Record<string, ItemDe
     }, {});
 }
 
+/** Per-size prices for a raw bead: prefer the explicit per-size map (JSON keys
+ *  arrive as strings); fall back to expanding a legacy single price with the
+ *  standard size curve. */
+function beadPricesOf(raw: RawCatalogueItem): Record<number, number> {
+  const prices: Record<number, number> = {};
+  for (const [mm, price] of Object.entries(raw.prices ?? {})) {
+    const size = Number(mm);
+    if (Number.isFinite(size) && Number.isFinite(price)) prices[size] = price;
+  }
+  if (Object.keys(prices).length) return prices;
+  return expandBasePrice(raw.price ?? 0, raw.sizes && raw.sizes.length ? raw.sizes : undefined);
+}
+
 /** Turn one injected item into a renderable def. The gradient/shape here is only
  *  a neutral fallback for the rare case an image fails to load — the real look
  *  comes from `imageUrl`. */
@@ -153,18 +172,18 @@ function toItemDef(raw: RawCatalogueItem): ItemDef {
   const common = {
     id: raw.id,
     name: raw.name,
-    price: raw.price,
     superCategory: raw.superCategory,
     category: raw.category,
     imageUrl: raw.imageUrl,
   };
   if (raw.superCategory === 'accessories') {
-    return { ...common, shape: 'coin', color: '#c9c9c9' } satisfies AccessoryDef;
+    return { ...common, price: raw.price ?? 0, shape: 'coin', color: '#c9c9c9' } satisfies AccessoryDef;
   }
   return {
     ...common,
     gradient: ['#dcdcdc', '#a9a9a9'],
     sizes: raw.sizes && raw.sizes.length ? raw.sizes : undefined,
+    prices: beadPricesOf(raw),
   } satisfies BeadDef;
 }
 
@@ -179,20 +198,26 @@ export function initCatalogue(raw?: RawCatalogue): void {
   // Drop malformed entries (e.g. a store product missing its `super:`/`cat:`
   // tags emits empty fields from the Liquid feed) instead of letting them
   // group under `undefined` and disappear without a trace.
+  // Beads accept either per-size `prices` or a legacy single `price`;
+  // accessories need a single `price`.
+  const hasPrice = (it: RawCatalogueItem) =>
+    it.superCategory === 'beads'
+      ? Object.values(it.prices ?? {}).some((v) => Number.isFinite(v)) || Number.isFinite(it.price)
+      : Number.isFinite(it.price);
   const items = raw.items.filter(
     (it) =>
       it &&
       typeof it.id === 'string' && it.id &&
       typeof it.name === 'string' && it.name &&
-      Number.isFinite(it.price) &&
       (it.superCategory === 'beads' || it.superCategory === 'accessories') &&
+      hasPrice(it) &&
       typeof it.category === 'string' && it.category,
   );
   if (items.length < raw.items.length) {
     // eslint-disable-next-line no-console
     console.warn(
       `[BraceletConfigurator] skipped ${raw.items.length - items.length} malformed catalogue item(s) — ` +
-        'check each product has "super:beads|accessories" and "cat:<slug>" tags.',
+        'check each product has "super:beads|accessories" and "cat:<slug>" tags and a price.',
     );
   }
   if (!items.length) return; // nothing usable — keep the stub catalogue

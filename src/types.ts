@@ -4,7 +4,6 @@
 interface ItemCommon {
   id: string;
   name: string;
-  price: number;
   /**
    * When present, the item is drawn from this (pre-loaded) image instead of the
    * procedural gradient/shape — this is the seam for Shopify-sourced sprites.
@@ -28,6 +27,8 @@ export interface BeadDef extends ItemCommon {
    * `BEAD_SIZES`; provide a subset when a bead is only stocked in some sizes.
    */
   sizes?: number[];
+  /** Price per bead for each offered diameter, keyed by mm. */
+  prices: Record<number, number>;
 }
 
 export type AccessoryShape =
@@ -46,6 +47,8 @@ export type AccessoryShape =
 
 /** A charm / spacer / pendant rendered as a flat vector shape. */
 export interface AccessoryDef extends ItemCommon {
+  /** Accessories are one-size, so a single price. */
+  price: number;
   color: string;
   shape: AccessoryShape;
 }
@@ -90,7 +93,14 @@ export interface CategoryTab {
 export interface RawCatalogueItem {
   id: string;
   name: string;
-  price: number;
+  /**
+   * Accessory price. For beads it's a legacy single/base price, consulted only
+   * when `prices` is absent (a feed that predates per-size prices) — it's then
+   * expanded with the standard size curve; see `expandBasePrice`.
+   */
+  price?: number;
+  /** Bead price per offered diameter, keyed by mm (JSON keys are strings). */
+  prices?: Record<string, number>;
   superCategory: SuperCategory;
   category: string;
   imageUrl?: string;

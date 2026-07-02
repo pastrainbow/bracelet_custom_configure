@@ -24,6 +24,7 @@ import { isAccessory, type ItemDef, type SuperCategory } from '@/types';
 import { drawBead } from '@/engine/render/bead';
 import { drawAccessory } from '@/engine/render/accessories';
 import { BEAD_SIZES } from '@/config/constants';
+import { priceFor } from '@/data/pricing';
 import { SPRITE_PADDING } from '@/engine/render/spriteCache';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -79,22 +80,21 @@ function sizesFor(def: ItemDef): number[] {
 function rowsFor(def: ItemDef, cat: string): string[][] {
   const tags = `configurator, super:${superOf(cat)}, cat:${cat}`;
   const sizes = sizesFor(def);
-  // Uniform base price across sizes; the widget scales it per size for display
-  // (see priceFor). Per-variant pricing isn't charged today (fixed-price cart).
-  const price = def.price.toFixed(2);
 
   if (sizes.length === 0) {
     return [[
       def.id, def.name, '', '', tags, 'TRUE',
-      'Size', 'One Size', def.id, price,
+      'Size', 'One Size', def.id, priceFor(def, 0).toFixed(2),
       'deny', 'manual', 'TRUE', 'TRUE', 'active',
     ]];
   }
+  // Each size variant carries its own stored price (see BeadDef.prices); the
+  // Liquid feed reads it back per variant.
   return sizes.map((mm, i): string[] => {
     const first = i === 0; // product-level columns only go on the first variant row
     return [
       def.id, first ? def.name : '', '', '', first ? tags : '', first ? 'TRUE' : '',
-      'Size', `${mm} mm`, `${def.id}-${mm}`, price,
+      'Size', `${mm} mm`, `${def.id}-${mm}`, priceFor(def, mm).toFixed(2),
       'deny', 'manual', 'TRUE', 'TRUE', first ? 'active' : '',
     ];
   });

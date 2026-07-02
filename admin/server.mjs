@@ -11,8 +11,8 @@
 //      the Theme Access shptka_ token).
 //   3. Create the product on Shopify via the Admin GraphQL API (productSet):
 //      handle = item id, tags `configurator, super:<x>, cat:<slug>`, one "Size"
-//      variant per selected size with SKU + stock quantity at the primary
-//      location. Needs Admin API credentials (SHOPIFY_CLIENT_ID/SECRET or a
+//      variant per selected size with its own price, SKU + stock quantity at
+//      the primary location. Needs Admin API credentials (SHOPIFY_CLIENT_ID/SECRET or a
 //      legacy SHOPIFY_PRODUCTS_TOKEN; see .env.example). Without them this
 //      step falls back to writing an import-ready CSV.
 //   4. Publish the product to the Online Store channel so the Liquid section's
@@ -397,7 +397,7 @@ async function createProduct(item, variants, locationId) {
     ],
     variants: variants.map((v) => ({
       optionValues: [{ optionName: 'Size', name: v.label }],
-      price: item.price.toFixed(2),
+      price: v.price.toFixed(2),
       sku: v.sku,
       inventoryPolicy: 'DENY',
       inventoryItem: { tracked: true, requiresShipping: true },
@@ -476,13 +476,12 @@ function csvCell(v) {
 
 async function writeImportCsv(item, variants) {
   const tags = `configurator, super:${item.superCategory}, cat:${item.category}`;
-  const price = item.price.toFixed(2);
   const rows = [CSV_COLUMNS];
   variants.forEach((v, i) => {
     const first = i === 0;
     rows.push([
       item.handle, first ? item.name : '', '', '', first ? tags : '', first ? 'TRUE' : '',
-      'Size', v.label, v.sku, price,
+      'Size', v.label, v.sku, v.price.toFixed(2),
       'deny', 'manual', 'TRUE', 'TRUE', first ? 'active' : '',
     ]);
   });
@@ -510,7 +509,6 @@ function validateItem(body) {
   const name = String(body.name ?? '').trim().replace(/\s+/g, ' ');
   const superCategory = body.superCategory;
   const category = String(body.category ?? '').trim();
-  const price = Number(body.price);
   const sizes = Array.isArray(body.sizes) ? body.sizes : [];
 
   if (!name) throw new Error('Name is required.');
@@ -519,24 +517,27 @@ function validateItem(body) {
   const handle = handleFromName(name);
   if (superCategory !== 'beads' && superCategory !== 'accessories') throw new Error('Pick beads or accessories.');
   if (!SLUG_RE.test(category) || category.length > 40) throw new Error('Category must be a short lowercase slug (e.g. "crystal").');
-  if (!Number.isFinite(price) || price <= 0 || price > 100000) throw new Error('Price must be a positive number.');
   if (!sizes.length) throw new Error('Select at least one size.');
 
+  // Each size carries its own price (beads are priced per diameter; the
+  // one-size accessory row is just the degenerate single-variant case).
   const variants = sizes.map((s) => {
     const qty = Number(s.qty);
     if (!Number.isInteger(qty) || qty < 0 || qty > 1000000) throw new Error('Stock must be a whole number ≥ 0.');
+    const price = Number(s.price);
+    if (!Number.isFinite(price) || price <= 0 || price > 100000) throw new Error('Each selected size needs a positive price.');
     if (superCategory === 'accessories') {
-      return { label: 'One Size', sku: handle, qty };
+      return { label: 'One Size', sku: handle, qty, price };
     }
     const mm = Number(s.mm);
     if (!BEAD_SIZES.includes(mm)) throw new Error(`Bead sizes must be one of: ${BEAD_SIZES.join(', ')} mm.`);
-    return { label: `${mm} mm`, sku: `${handle}-${mm}`, qty };
+    return { label: `${mm} mm`, sku: `${handle}-${mm}`, qty, price };
   });
-  if (superCategory === 'accessories' && variants.length !== 1) throw new Error('Accessories have a single "One Size" stock count.');
+  if (superCategory === 'accessories' && variants.length !== 1) throw new Error('Accessories have a single "One Size" price and stock count.');
   const labels = new Set(variants.map((v) => v.label));
   if (labels.size !== variants.length) throw new Error('Duplicate sizes selected.');
 
-  return { item: { name, handle, superCategory, category, price }, variants };
+  return { item: { name, handle, superCategory, category }, variants };
 }
 
 // ─── The add-item pipeline ───────────────────────────────────────────────────
@@ -593,7 +594,7 @@ async function handleAddItem(body) {
     try {
       const locationId = await primaryLocationId();
       productId = await createProduct(item, variants, locationId);
-      const stockSummary = variants.map((v) => `${v.label}: ${v.qty}`).join(', ');
+      const stockSummary = variants.map((v) => `${v.label}: $${v.price.toFixed(2)} × ${v.qty}`).join(', ');
       step('Create product & stock', 'done', `Product "${item.name}" (${item.handle}) created with stock — ${stockSummary}.`);
     } catch (err) {
       step('Create product & stock', 'fail', err.message);
@@ -624,8 +625,7 @@ async function handleAddItem(body) {
       handle: item.handle,
       superCategory: item.superCategory,
       category: item.category,
-      price: item.price,
-      variants: variants.map((v) => ({ label: v.label, sku: v.sku, qty: v.qty })),
+      variants: variants.map((v) => ({ label: v.label, sku: v.sku, qty: v.qty, price: v.price })),
       mode: productsConfigured ? 'api' : 'csv',
       addedAt: new Date().toISOString(),
     }).catch(() => {}); // the ledger is best-effort — never fail the push over it

@@ -29,5 +29,73 @@
     ],
     "mode": "api",
     "addedAt": "2026-07-01T20:15:52.635Z"
+  },
+  {
+    "name": "DEBUG TEST 2",
+    "handle": "debug-test-2",
+    "superCategory": "beads",
+    "category": "crystal",
+    "variants": [
+      {
+        "label": "6 mm",
+        "sku": "debug-test-2-6",
+        "qty": 10,
+        "price": 67
+      },
+      {
+        "label": "10 mm",
+        "sku": "debug-test-2-10",
+        "qty": 10,
+        "price": 69
+      },
+      {
+        "label": "12 mm",
+        "sku": "debug-test-2-12",
+        "qty": 10,
+        "price": 420
+      },
+      {
+        "label": "14 mm",
+        "sku": "debug-test-2-14",
+        "qty": 10,
+        "price": 1200
+      }
+    ],
+    "mode": "api",
+    "addedAt": "2026-07-02T15:49:19.965Z"
+  },
+  {
+    "name": "DEBUG TEST LOL",
+    "handle": "debug-test-lol",
+    "superCategory": "beads",
+    "category": "crystal",
+    "variants": [
+      {
+        "label": "6 mm",
+        "sku": "debug-test-lol-6",
+        "qty": 10,
+        "price": 67
+      },
+      {
+        "label": "10 mm",
+        "sku": "debug-test-lol-10",
+        "qty": 10,
+        "price": 69
+      },
+      {
+        "label": "12 mm",
+        "sku": "debug-test-lol-12",
+        "qty": 10,
+        "price": 420
+      },
+      {
+        "label": "14 mm",
+        "sku": "debug-test-lol-14",
+        "qty": 10,
+        "price": 1200
+      }
+    ],
+    "mode": "api",
+    "addedAt": "2026-07-02T15:52:19.616Z"
   }
 ]

@@ -1,9 +1,12 @@
 import type { ItemDef } from '@/types';
 import { isAccessory } from '@/types';
+import { BEAD_SIZES } from '@/config/constants';
 
 /**
- * Price multiplier by bead diameter (mm) — larger beads use more material and
- * cost more. Keyed to the offered sizes; unknown sizes fall back to 1×.
+ * Standard price curve by bead diameter (mm) — larger beads use more material
+ * and cost more. Only used to expand a single base price into per-size prices
+ * (stub catalogue entries and legacy feeds); items with explicit per-size
+ * prices never touch it.
  */
 export const SIZE_PRICE_FACTOR: Record<number, number> = {
   6: 0.6,
@@ -12,11 +15,31 @@ export const SIZE_PRICE_FACTOR: Record<number, number> = {
   14: 1.8,
 };
 
-/** Price of an item at a given size. Beads scale with size; accessories don't. */
+/**
+ * Expand a single 10 mm base price into per-size prices using the standard
+ * curve. Sizes without a known factor fall back to 1×.
+ */
+export function expandBasePrice(base: number, sizes: readonly number[] = BEAD_SIZES): Record<number, number> {
+  const prices: Record<number, number> = {};
+  for (const mm of sizes) {
+    prices[mm] = Math.round(base * (SIZE_PRICE_FACTOR[mm] ?? 1) * 100) / 100;
+  }
+  return prices;
+}
+
+/** Price of an item at a given size. Beads carry an explicit price per size;
+ *  accessories are one-size. */
 export function priceFor(def: ItemDef, mm: number): number {
   if (isAccessory(def)) return def.price;
-  const factor = SIZE_PRICE_FACTOR[mm] ?? 1;
-  return Math.round(def.price * factor * 100) / 100;
+  const sized = def.prices[mm];
+  if (Number.isFinite(sized)) return sized;
+  // Shouldn't happen — availability is gated on `sizes` which mirrors the
+  // priced sizes — but if a bead is somehow placed at an unpriced size, charge
+  // the nearest priced size rather than $0.
+  const priced = Object.keys(def.prices).map(Number);
+  if (!priced.length) return 0;
+  const nearest = priced.reduce((a, b) => (Math.abs(b - mm) < Math.abs(a - mm) ? b : a));
+  return def.prices[nearest];
 }
 
 /** Compact price label, e.g. "$2" or "$2.80". */

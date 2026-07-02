@@ -52,7 +52,7 @@
   .sizerow { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid var(--line); }
   .sizerow:first-child { border-top: 0; }
   .sizerow label { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
-  .sizerow input[type=number] { width: 110px; }
+  .sizerow input[type=number] { width: 88px; }
   .sizerow .qlabel { font-size: 12px; color: var(--muted); }
   .sizerow.dis .qlabel, .sizerow.dis input[type=number] { opacity: .35; pointer-events: none; }
 
@@ -108,7 +108,7 @@
       <span class="chip" id="chipProducts">products API</span>
     </div>
   </header>
-  <p class="sub">Add a bead or accessory to the configurator — sprite, details and per-size stock — and push it straight to Shopify.</p>
+  <p class="sub">Add a bead or accessory to the configurator — sprite, details and per-size price &amp; stock — and push it straight to Shopify.</p>
 
   <form class="card" id="form">
     <label class="f">
@@ -141,17 +141,12 @@
         <input type="text" id="customCat" placeholder="e.g. glass" spellcheck="false" />
         <div class="hint">Shown as a new tab, title-cased.</div>
       </label>
-      <label class="f">
-        <span>Base price</span>
-        <input type="number" id="price" min="0.01" step="0.01" placeholder="4.00" />
-        <div class="hint">Per bead; same across sizes.</div>
-      </label>
     </div>
 
     <div class="f">
-      <span class="flabel" id="sizesLabel">Sizes &amp; stock</span>
+      <span class="flabel" id="sizesLabel">Sizes, prices &amp; stock</span>
       <div class="sizes" id="sizes"></div>
-      <div class="hint" id="sizesHint">Tick the sizes offered and enter the stock on hand for each.</div>
+      <div class="hint" id="sizesHint">Tick the sizes offered and enter the price and stock on hand for each.</div>
     </div>
 
     <div class="f">
@@ -255,23 +250,27 @@
     const box = $('sizes');
     box.innerHTML = '';
     if (superCategory === 'accessories') {
-      $('sizesLabel').textContent = 'Stock';
-      $('sizesHint').textContent = 'Accessories are one-size; enter the stock on hand.';
+      $('sizesLabel').textContent = 'Price & stock';
+      $('sizesHint').textContent = 'Accessories are one-size; enter the price and the stock on hand.';
       box.insertAdjacentHTML('beforeend',
         `<div class="sizerow">
            <label><strong>One Size</strong></label>
+           <span class="qlabel">price $</span>
+           <input type="number" min="0.01" step="0.01" placeholder="4.00" data-price="one" />
            <span class="qlabel">stock</span>
            <input type="number" min="0" step="1" value="10" data-qty="one" />
          </div>`);
       return;
     }
-    $('sizesLabel').textContent = 'Sizes & stock';
-    $('sizesHint').textContent = 'Tick the sizes offered and enter the stock on hand for each.';
+    $('sizesLabel').textContent = 'Sizes, prices & stock';
+    $('sizesHint').textContent = 'Tick the sizes offered and enter the price and stock on hand for each.';
     for (const mm of cfg.beadSizes) {
       const row = document.createElement('div');
       row.className = 'sizerow';
       row.innerHTML =
         `<label><input type="checkbox" data-mm="${mm}" checked /> <strong>${mm} mm</strong></label>
+         <span class="qlabel">price $</span>
+         <input type="number" min="0.01" step="0.01" placeholder="4.00" data-price="${mm}" />
          <span class="qlabel">stock</span>
          <input type="number" min="0" step="1" value="10" data-qty="${mm}" />`;
       row.querySelector('input[type=checkbox]').addEventListener('change', (e) => {
@@ -332,27 +331,30 @@
     const name = $('name').value.trim();
     const handle = $('handle').value.trim();
     const category = $('category').value === '__new' ? $('customCat').value.trim() : $('category').value;
-    const price = parseFloat($('price').value);
     if (!name) throw new Error('Enter a name.');
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) throw new Error('Item id must be a lowercase slug, e.g. "rose-quartz".');
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category)) throw new Error('Category must be a lowercase slug.');
-    if (!(price > 0)) throw new Error('Enter a price.');
     if (!imageDataUrl) throw new Error('Add a sprite image.');
 
     const sizes = [];
+    const rowOf = (key) => ({
+      price: parseFloat(document.querySelector(`[data-price="${key}"]`).value),
+      qty: parseInt(document.querySelector(`[data-qty="${key}"]`).value, 10),
+    });
     if (superCategory === 'accessories') {
-      sizes.push({ mm: null, qty: parseInt(document.querySelector('[data-qty=one]').value, 10) });
+      sizes.push({ mm: null, ...rowOf('one') });
     } else {
       for (const cb of document.querySelectorAll('#sizes input[type=checkbox]:checked')) {
         const mm = Number(cb.dataset.mm);
-        sizes.push({ mm, qty: parseInt(document.querySelector(`[data-qty="${mm}"]`).value, 10) });
+        sizes.push({ mm, ...rowOf(mm) });
       }
       if (!sizes.length) throw new Error('Tick at least one size.');
     }
     for (const s of sizes) {
+      if (!(s.price > 0)) throw new Error('Enter a price for each selected size.');
       if (!Number.isInteger(s.qty) || s.qty < 0) throw new Error('Stock must be a whole number ≥ 0.');
     }
-    return { name, handle, superCategory, category, price, sizes, image: imageDataUrl };
+    return { name, handle, superCategory, category, sizes, image: imageDataUrl };
   }
 
   const ICONS = { done: '✓', warn: '⚠', fail: '✕', skip: '–' };

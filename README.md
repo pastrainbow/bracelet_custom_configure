@@ -106,8 +106,8 @@ its styles neither leak into nor inherit from the host theme.
 ## Catalogue admin app
 
 A small local GUI for adding a new bead/accessory to the live catalogue —
-name, category, price, per-size stock and the sprite image — and pushing it to
-Shopify in one click:
+name, category, per-size price & stock and the sprite image — and pushing it
+to Shopify in one click:
 
 ```bash
 npm run admin   # http://localhost:5190
