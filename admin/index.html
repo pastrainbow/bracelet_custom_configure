@@ -23,7 +23,7 @@
     margin: 0; background: var(--bg); color: var(--ink);
     font: 14px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  .wrap { max-width: 640px; margin: 0 auto; padding: 28px 20px 64px; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 28px 20px 64px; }
   header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
   h1 { font-size: 20px; margin: 0; letter-spacing: .2px; }
   .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; }
@@ -31,6 +31,13 @@
   .chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--muted); }
   .chip.on { border-color: #cde3cd; background: #eef6ee; color: var(--ok); }
   .chip.off { border-color: #f2ddc2; background: #fdf4e7; color: var(--warn); }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button {
+    border: 1px solid var(--line); background: #fff; color: var(--muted); font: inherit; font-weight: 600;
+    padding: 8px 20px; border-radius: 10px 10px 0 0; border-bottom: 0; cursor: pointer;
+  }
+  .tabs button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
   .row { display: flex; gap: 14px; }
@@ -41,6 +48,7 @@
     width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px;
     font: inherit; background: #fff; color: var(--ink); outline: none;
   }
+  input:disabled { background: #f3f0ec; color: var(--muted); }
   input:focus, select:focus { border-color: var(--accent); }
   .hint { font-size: 11.5px; color: var(--muted); margin-top: 4px; }
 
@@ -79,6 +87,9 @@
   }
   .btn:disabled { opacity: .5; cursor: default; }
   .btn.ghost { background: #fff; color: var(--accent-ink); border: 1px solid var(--line); }
+  .btn.sm { padding: 6px 12px; font-size: 12.5px; border-radius: 8px; }
+  .btn.danger { background: #fff; color: var(--fail); border: 1px solid #f0c9c9; }
+  .btn.danger.armed { background: var(--fail); color: #fff; border-color: var(--fail); }
   .spin { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: r 0.8s linear infinite; display: none; }
   @keyframes r { to { transform: rotate(360deg); } }
   .note { font-size: 12px; color: var(--muted); }
@@ -96,6 +107,35 @@
   .banner.ok { display: block; background: #eef6ee; color: var(--ok); }
   .banner.bad { display: block; background: #fdecec; color: var(--fail); }
   .err { color: var(--fail); font-size: 12.5px; margin-top: 10px; display: none; }
+  .warnbox { display: none; margin: 0 0 14px; padding: 9px 12px; border-radius: 9px; background: #fdf4e7; color: var(--warn); font-size: 12.5px; }
+
+  .editbar {
+    display: none; align-items: center; gap: 10px; margin: -4px 0 16px; padding: 9px 12px;
+    border-radius: 9px; background: #f3ede4; color: var(--accent-ink); font-size: 12.5px;
+  }
+  .editbar strong { overflow-wrap: anywhere; }
+  .editbar button { margin-left: auto; flex: none; }
+
+  .managebar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+  .managebar input[type=text] { flex: 1; }
+  .mstatus { font-size: 12.5px; color: var(--muted); margin: 6px 2px; }
+  .mstatus.bad { color: var(--fail); }
+  .items { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; display: none; }
+  .item { display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-top: 1px solid var(--line); }
+  .item:first-child { border-top: 0; }
+  .item .thumb {
+    width: 44px; height: 44px; flex: none; border-radius: 8px; overflow: hidden;
+    background: conic-gradient(#eee 25%, #fff 0 50%, #eee 0 75%, #fff 0) 0 0/11px 11px;
+    display: flex; align-items: center; justify-content: center; color: var(--muted); font-weight: 700; font-size: 15px;
+  }
+  .item .thumb img { width: 100%; height: 100%; }
+  .item .info { flex: 1; min-width: 0; }
+  .item .nm { font-weight: 600; overflow-wrap: anywhere; }
+  .item .nm .hdl { font-weight: 400; color: var(--muted); font-size: 12px; }
+  .item .meta { font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+  .badge { display: inline-block; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--line); background: #faf8f5; color: var(--accent-ink); margin-right: 4px; vertical-align: 1px; }
+  .badge.warn { border-color: #f2ddc2; background: #fdf4e7; color: var(--warn); }
+  .item .ops { display: flex; gap: 6px; flex: none; }
 </style>
 </head>
 <body>
@@ -108,9 +148,20 @@
       <span class="chip" id="chipProducts">products API</span>
     </div>
   </header>
-  <p class="sub">Add a bead or accessory to the configurator — sprite, details and per-size price &amp; stock — and push it straight to Shopify.</p>
+  <p class="sub">Add, edit or remove the configurator's beads &amp; accessories — changes push straight to Shopify.</p>
+
+  <div class="tabs">
+    <button type="button" id="tabAdd" class="on">Add item</button>
+    <button type="button" id="tabManage">Manage items</button>
+  </div>
 
   <form class="card" id="form">
+    <div class="editbar" id="editBar">
+      <span>Editing <strong id="editName"></strong> — the item id (handle) is permanent and cannot change.</span>
+      <button class="btn ghost sm" type="button" id="cancelEdit">Cancel</button>
+    </div>
+    <div class="warnbox" id="editWarn"></div>
+
     <label class="f">
       <span>Item type</span>
       <span class="seg" id="typeSeg">
@@ -162,7 +213,7 @@
         </div>
       </div>
       <input type="file" id="file" accept="image/png,image/webp,image/jpeg" hidden />
-      <div class="hint">Dashed circle = the bead’s physical extent in the widget.</div>
+      <div class="hint" id="dropHint">Dashed circle = the bead’s physical extent in the widget.</div>
     </div>
 
     <div class="err" id="err"></div>
@@ -177,6 +228,17 @@
     <div class="banner" id="banner"></div>
     <div class="steps" id="steps"></div>
   </form>
+
+  <div class="card" id="manageView" style="display:none">
+    <div class="managebar">
+      <input type="text" id="filter" placeholder="Filter by name, handle or category…" autocomplete="off" />
+      <button class="btn ghost sm" type="button" id="refreshBtn">Refresh</button>
+    </div>
+    <div class="mstatus" id="mstatus">Loading…</div>
+    <div class="items" id="items"></div>
+    <div class="banner" id="mbanner"></div>
+    <div class="steps" id="msteps"></div>
+  </div>
 </div>
 
 <script>
@@ -213,21 +275,42 @@
   let superCategory = 'beads';
   let handleTouched = false;
   let imageDataUrl = null;
+  /** null = add mode; otherwise { handle, name } of the item being edited. */
+  let editing = null;
+
+  // ── tabs ──
+  function showTab(which) {
+    $('tabAdd').classList.toggle('on', which === 'add');
+    $('tabManage').classList.toggle('on', which === 'manage');
+    $('form').style.display = which === 'add' ? '' : 'none';
+    $('manageView').style.display = which === 'manage' ? '' : 'none';
+  }
+  $('tabAdd').addEventListener('click', () => {
+    if (editing) exitEditMode();
+    showTab('add');
+  });
+  $('tabManage').addEventListener('click', () => {
+    showTab('manage');
+    loadProducts();
+  });
 
   // ── type toggle ──
   $('typeSeg').addEventListener('click', (e) => {
     const btn = e.target.closest('button');
     if (!btn) return;
-    superCategory = btn.dataset.v;
-    for (const b of $('typeSeg').children) b.classList.toggle('on', b === btn);
+    setSuperCategory(btn.dataset.v);
+  });
+  function setSuperCategory(v) {
+    superCategory = v;
+    for (const b of $('typeSeg').children) b.classList.toggle('on', b.dataset.v === v);
     renderCategories();
     renderSizes();
-  });
+  }
 
   // ── name → handle slug ──
   const slugify = (s) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   $('name').addEventListener('input', () => {
-    if (!handleTouched) $('handle').value = slugify($('name').value);
+    if (!handleTouched && !editing) $('handle').value = slugify($('name').value);
   });
   $('handle').addEventListener('input', () => { handleTouched = $('handle').value !== ''; });
 
@@ -242,6 +325,16 @@
     sel.onchange = () => {
       $('customCatWrap').style.display = sel.value === '__new' ? '' : 'none';
     };
+    sel.onchange();
+  }
+
+  /** Select `slug` if it's a known category for the current type, otherwise
+   *  route it through the "New category…" free-text field. */
+  function selectCategory(slug) {
+    const sel = $('category');
+    const known = cfg.categories[superCategory].some((c) => c.cat === slug);
+    sel.value = known ? slug : '__new';
+    if (!known) $('customCat').value = slug ?? '';
     sel.onchange();
   }
 
@@ -300,7 +393,7 @@
     reader.onerror = () => showError(`Could not read "${file.name}" — try re-selecting the file.`);
     reader.onload = async () => {
       imageDataUrl = reader.result;
-      $('dropText').innerHTML = `<strong>${file.name}</strong><br />Framed preview → (click to replace)`;
+      $('dropText').innerHTML = `<strong>${file.name.replace(/[<>&]/g, '')}</strong><br />Framed preview → (click to replace)`;
       try {
         const res = await fetch('/api/preview', {
           method: 'POST',
@@ -321,7 +414,7 @@
     reader.readAsDataURL(file);
   }
 
-  // ── submit ──
+  // ── submit (add + save-edit) ──
   function showError(msg) {
     $('err').textContent = msg;
     $('err').style.display = msg ? 'block' : 'none';
@@ -329,12 +422,12 @@
 
   function collect() {
     const name = $('name').value.trim();
-    const handle = $('handle').value.trim();
+    const handle = editing ? editing.handle : $('handle').value.trim();
     const category = $('category').value === '__new' ? $('customCat').value.trim() : $('category').value;
     if (!name) throw new Error('Enter a name.');
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) throw new Error('Item id must be a lowercase slug, e.g. "rose-quartz".');
+    if (!editing && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(handle)) throw new Error('Item id must be a lowercase slug, e.g. "rose-quartz".');
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(category)) throw new Error('Category must be a lowercase slug.');
-    if (!imageDataUrl) throw new Error('Add a sprite image.');
+    if (!imageDataUrl && !editing) throw new Error('Add a sprite image.');
 
     const sizes = [];
     const rowOf = (key) => ({
@@ -354,10 +447,25 @@
       if (!(s.price > 0)) throw new Error('Enter a price for each selected size.');
       if (!Number.isInteger(s.qty) || s.qty < 0) throw new Error('Stock must be a whole number ≥ 0.');
     }
+    // On edit, image is optional — null means "keep the current sprite".
     return { name, handle, superCategory, category, sizes, image: imageDataUrl };
   }
 
   const ICONS = { done: '✓', warn: '⚠', fail: '✕', skip: '–' };
+
+  function renderSteps(el, steps) {
+    el.innerHTML = '';
+    for (const s of steps) {
+      const div = document.createElement('div');
+      div.className = 'step ' + s.status;
+      div.innerHTML = `<div class="ic">${ICONS[s.status] || '?'}</div>
+        <div><div class="nm"></div><div class="dt"></div></div>`;
+      div.querySelector('.nm').textContent = s.name;
+      div.querySelector('.dt').textContent = s.detail;
+      el.appendChild(div);
+    }
+    el.style.display = 'block';
+  }
 
   $('form').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -372,32 +480,24 @@
     $('spin').style.display = 'block';
     $('busyNote').style.display = '';
     try {
-      const res = await fetch('/api/items', {
-        method: 'POST',
+      const res = await fetch(editing ? `/api/items/${encodeURIComponent(editing.handle)}` : '/api/items', {
+        method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       }).then((r) => r.json());
 
       if (res.error) { showError(res.error); return; }
 
-      const stepsEl = $('steps');
-      stepsEl.innerHTML = '';
-      for (const s of res.steps) {
-        const div = document.createElement('div');
-        div.className = 'step ' + s.status;
-        div.innerHTML = `<div class="ic">${ICONS[s.status] || '?'}</div>
-          <div><div class="nm"></div><div class="dt"></div></div>`;
-        div.querySelector('.nm').textContent = s.name;
-        div.querySelector('.dt').textContent = s.detail;
-        stepsEl.appendChild(div);
-      }
-      stepsEl.style.display = 'block';
+      renderSteps($('steps'), res.steps);
       $('banner').className = 'banner ' + (res.ok ? 'ok' : 'bad');
       $('banner').textContent = res.ok
-        ? `"${payload.name}" pushed. Hard-refresh the store page (Ctrl+Shift+R) to see it.`
+        ? (editing
+            ? `"${payload.name}" updated. Hard-refresh the store page (Ctrl+Shift+R) to see the changes.`
+            : `"${payload.name}" pushed. Hard-refresh the store page (Ctrl+Shift+R) to see it.`)
         : 'Some steps failed — see below.';
       if (res.ok) {
         $('submit').style.display = 'none';
+        $('resetBtn').textContent = editing ? 'Back to the list' : 'Add another item';
         $('resetBtn').style.display = '';
       }
     } catch {
@@ -409,19 +509,262 @@
     }
   });
 
-  $('resetBtn').addEventListener('click', () => {
+  function resetForm() {
     $('form').reset();
     handleTouched = false;
     imageDataUrl = null;
+    $('handle').disabled = false;
     $('previewBox').style.display = 'none';
     $('dropText').innerHTML = '<strong>Click or drop an image</strong><br />Transparent PNG, item centred. It’s auto-trimmed and framed for the widget.';
     $('banner').className = 'banner';
     $('steps').style.display = 'none';
     $('submit').style.display = '';
+    $('submit').textContent = 'Add & push to Shopify';
     $('resetBtn').style.display = 'none';
-    renderCategories();
-    renderSizes();
+    $('editBar').style.display = 'none';
+    $('editWarn').style.display = 'none';
+    showError('');
+    setSuperCategory('beads');
+  }
+
+  $('resetBtn').addEventListener('click', () => {
+    const wasEditing = Boolean(editing);
+    editing = null;
+    resetForm();
+    if (wasEditing) {
+      showTab('manage');
+      loadProducts();
+    }
   });
+
+  // ── edit mode ──
+  function exitEditMode() {
+    editing = null;
+    resetForm();
+  }
+  $('cancelEdit').addEventListener('click', () => {
+    exitEditMode();
+    showTab('manage');
+  });
+
+  function startEdit(item) {
+    resetForm();
+    editing = { handle: item.handle, name: item.name };
+    showTab('add');
+
+    setSuperCategory(item.superCategory === 'accessories' ? 'accessories' : 'beads');
+    $('name').value = item.name;
+    $('handle').value = item.handle;
+    $('handle').disabled = true;
+    selectCategory(item.category ?? '');
+
+    // Prefill sizes/prices/stock from the live variants; anything the
+    // configurator can't represent is flagged and will be dropped on save.
+    const warnings = [];
+    if (!item.superCategory) warnings.push('This product is missing its super:beads/accessories tag — saving will set it from the type selected above.');
+    if (superCategory === 'accessories') {
+      const v = item.variants[0];
+      if (v) {
+        document.querySelector('[data-price="one"]').value = v.price;
+        document.querySelector('[data-qty="one"]').value = v.qty;
+      }
+      if (item.variants.length > 1) {
+        warnings.push(`This product has ${item.variants.length} variants, but accessories are one-size — saving keeps only the single "One Size" variant.`);
+      }
+    } else {
+      for (const cb of document.querySelectorAll('#sizes input[type=checkbox]')) {
+        cb.checked = false;
+        cb.dispatchEvent(new Event('change'));
+      }
+      const unsupported = [];
+      for (const v of item.variants) {
+        const mm = /^(\d+)\s*mm$/i.exec(v.label ?? '')?.[1];
+        const cb = mm && document.querySelector(`#sizes input[data-mm="${Number(mm)}"]`);
+        if (cb) {
+          cb.checked = true;
+          cb.dispatchEvent(new Event('change'));
+          document.querySelector(`[data-price="${Number(mm)}"]`).value = v.price;
+          document.querySelector(`[data-qty="${Number(mm)}"]`).value = v.qty;
+        } else {
+          unsupported.push(v.label || '(unnamed)');
+        }
+      }
+      if (unsupported.length) {
+        warnings.push(`Size(s) ${unsupported.join(', ')} aren't supported by the configurator (${cfg.beadSizes.join(', ')} mm) and will be REMOVED when you save.`);
+      }
+    }
+
+    $('editName').textContent = `${item.name} (${item.handle})`;
+    $('editBar').style.display = 'flex';
+    if (warnings.length) {
+      $('editWarn').textContent = warnings.join(' ');
+      $('editWarn').style.display = 'block';
+    }
+    $('dropText').innerHTML = '<strong>Click or drop an image to replace the sprite</strong><br />Optional — leave empty to keep the current one.';
+    // Show the current sprite (local copy, or pulled from the theme).
+    const img = $('previewImg');
+    img.onload = () => { $('previewBox').style.display = 'block'; };
+    img.src = `/api/sprites/${encodeURIComponent(item.handle)}.png?t=${Date.now()}`;
+    $('submit').textContent = 'Save changes';
+  }
+
+  // ── manage list ──
+  let products = [];
+  let lastMock = false;
+  let loadSeq = 0;
+
+  async function loadProducts(clearResult = true) {
+    const seq = ++loadSeq;
+    $('mstatus').className = 'mstatus';
+    $('mstatus').textContent = 'Loading products from Shopify…';
+    $('items').style.display = 'none';
+    if (clearResult) {
+      $('mbanner').className = 'banner';
+      $('msteps').style.display = 'none';
+    }
+    try {
+      const res = await fetch('/api/products').then((r) => r.json());
+      if (seq !== loadSeq) return; // a newer refresh superseded this one
+      if (res.error) {
+        $('mstatus').className = 'mstatus bad';
+        $('mstatus').textContent = res.error;
+        return;
+      }
+      products = res.products;
+      lastMock = Boolean(res.mock);
+      renderList();
+    } catch {
+      if (seq !== loadSeq) return;
+      $('mstatus').className = 'mstatus bad';
+      $('mstatus').textContent = 'Could not load the product list — is the server still running?';
+    }
+  }
+
+  function renderList() {
+    const q = $('filter').value.trim().toLowerCase();
+    const shown = products.filter((p) =>
+      !q || p.name.toLowerCase().includes(q) || p.handle.includes(q) || (p.category ?? '').includes(q),
+    );
+    // Beads first, then accessories, then untagged; alphabetical inside.
+    const rank = { beads: 0, accessories: 1 };
+    shown.sort((a, b) =>
+      ((rank[a.superCategory] ?? 2) - (rank[b.superCategory] ?? 2)) ||
+      (a.category ?? '').localeCompare(b.category ?? '') ||
+      a.name.localeCompare(b.name),
+    );
+
+    $('mstatus').textContent =
+      (lastMock ? 'DRY RUN — showing the local ledger as mock data, not the live store. ' : '') +
+      (products.length
+        ? `${products.length} configurator item(s) on the store${q ? `, ${shown.length} matching the filter` : ''}.`
+        : 'No configurator items found on the store (products need the "configurator" tag).');
+
+    const box = $('items');
+    box.innerHTML = '';
+    box.style.display = shown.length ? 'block' : 'none';
+    for (const p of shown) box.appendChild(itemRow(p));
+  }
+
+  $('filter').addEventListener('input', () => renderList());
+  $('refreshBtn').addEventListener('click', loadProducts);
+
+  function itemRow(p) {
+    const row = document.createElement('div');
+    row.className = 'item';
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    thumb.textContent = (p.name[0] ?? '?').toUpperCase();
+    const img = document.createElement('img');
+    img.alt = '';
+    img.onload = () => { thumb.textContent = ''; thumb.appendChild(img); };
+    // The endpoint serves the local copy when there is one, otherwise the
+    // sprite as it exists on the theme.
+    img.src = `/api/sprites/${encodeURIComponent(p.handle)}.png`;
+
+    const info = document.createElement('div');
+    info.className = 'info';
+    const nm = document.createElement('div');
+    nm.className = 'nm';
+    nm.textContent = p.name + ' ';
+    const hdl = document.createElement('span');
+    hdl.className = 'hdl';
+    hdl.textContent = `(${p.handle})`;
+    nm.appendChild(hdl);
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const badge = (text, warn) => {
+      const b = document.createElement('span');
+      b.className = 'badge' + (warn ? ' warn' : '');
+      b.textContent = text;
+      meta.appendChild(b);
+    };
+    badge(p.superCategory === 'accessories' ? 'accessory' : p.superCategory === 'beads' ? 'bead' : 'missing type tag', !p.superCategory);
+    if (p.category) badge(p.category); else badge('missing category tag', true);
+    if (p.status && p.status !== 'ACTIVE') badge(p.status.toLowerCase(), true);
+    const sizesTxt = document.createElement('span');
+    sizesTxt.textContent = p.variants.map((v) => `${v.label || '?'} $${v.price} ×${v.qty}`).join(' · ');
+    meta.appendChild(sizesTxt);
+    info.append(nm, meta);
+
+    const ops = document.createElement('div');
+    ops.className = 'ops';
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn ghost sm';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => startEdit(p));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn danger sm';
+    delBtn.textContent = 'Delete';
+    let armTimer = null;
+    delBtn.addEventListener('click', async () => {
+      if (!delBtn.classList.contains('armed')) {
+        // Two-step confirm: first click arms the button for 4 seconds.
+        delBtn.classList.add('armed');
+        delBtn.textContent = 'Really delete?';
+        armTimer = setTimeout(() => {
+          delBtn.classList.remove('armed');
+          delBtn.textContent = 'Delete';
+        }, 4000);
+        return;
+      }
+      clearTimeout(armTimer);
+      delBtn.disabled = true;
+      editBtn.disabled = true;
+      delBtn.textContent = 'Deleting…';
+      $('mbanner').className = 'banner';
+      $('msteps').style.display = 'none';
+      try {
+        const res = await fetch(`/api/items/${encodeURIComponent(p.handle)}`, { method: 'DELETE' }).then((r) => r.json());
+        if (res.error) {
+          $('mbanner').className = 'banner bad';
+          $('mbanner').textContent = res.error;
+          delBtn.disabled = false;
+          editBtn.disabled = false;
+          delBtn.classList.remove('armed');
+          delBtn.textContent = 'Delete';
+          return;
+        }
+        renderSteps($('msteps'), res.steps);
+        $('mbanner').className = 'banner ' + (res.ok ? 'ok' : 'bad');
+        $('mbanner').textContent = res.ok ? `"${p.name}" deleted.` : `Deleting "${p.name}" did not fully succeed — see below.`;
+        loadProducts(false); // keep the result banner + steps visible
+      } catch {
+        $('mbanner').className = 'banner bad';
+        $('mbanner').textContent = 'Delete request failed — is the server still running?';
+        delBtn.disabled = false;
+        editBtn.disabled = false;
+        delBtn.classList.remove('armed');
+        delBtn.textContent = 'Delete';
+      }
+    });
+    ops.append(editBtn, delBtn);
+
+    row.append(thumb, info, ops);
+    return row;
+  }
 })();
 </script>
 </body>
