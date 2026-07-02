@@ -1,0 +1,13 @@
+// Cloudflare Worker config for the embedded catalogue admin app.
+// Deploy with `npm run deploy:admin` (scripts/deploy-admin-app.mjs) — it
+// injects SHOPIFY_STORE / SHOPIFY_THEME_ID / SHOPIFY_CLIENT_ID /
+// SHOPIFY_API_VERSION as vars and SHOPIFY_CLIENT_SECRET as a secret, all
+// sourced from the repo's .env, so no store-specific values live here.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "bracelet-catalogue-admin",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-06-01",
+  // Lets worker.mjs `import uiHtml from './ui.html'` as a string.
+  "rules": [{ "type": "Text", "globs": ["**/*.html"], "fallthrough": true }]
+}

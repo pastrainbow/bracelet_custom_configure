@@ -4,6 +4,10 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Bracelet Catalogue Admin</title>
+<!-- App Bridge: must be the first script; the api key is the app's client id,
+     injected by the worker when it serves this page. -->
+<meta name="shopify-api-key" content="__SHOPIFY_API_KEY__" />
+<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js"></script>
 <style>
   :root {
     --bg: #f6f4f1;
@@ -29,8 +33,6 @@
   .sub { color: var(--muted); font-size: 12.5px; margin: 0 0 18px; }
   .chips { display: flex; gap: 6px; flex-wrap: wrap; }
   .chip { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--muted); }
-  .chip.on { border-color: #cde3cd; background: #eef6ee; color: var(--ok); }
-  .chip.off { border-color: #f2ddc2; background: #fdf4e7; color: var(--warn); }
 
   .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
   .tabs button {
@@ -144,11 +146,10 @@
     <h1>Bracelet Catalogue Admin</h1>
     <div class="chips">
       <span class="chip" id="chipStore">store: …</span>
-      <span class="chip" id="chipTheme">sprite push</span>
-      <span class="chip" id="chipProducts">products API</span>
+      <span class="chip" id="chipTheme">theme: …</span>
     </div>
   </header>
-  <p class="sub">Add, edit or remove the configurator's beads &amp; accessories — changes push straight to Shopify.</p>
+  <p class="sub">Add, edit or remove the configurator's beads &amp; accessories — changes push straight to the store.</p>
 
   <div class="tabs">
     <button type="button" id="tabAdd" class="on">Add item</button>
@@ -219,9 +220,9 @@
     <div class="err" id="err"></div>
 
     <div class="actions">
-      <button class="btn" type="submit" id="submit">Add &amp; push to Shopify</button>
+      <button class="btn" type="submit" id="submit">Add &amp; push to the store</button>
       <div class="spin" id="spin"></div>
-      <span class="note" id="busyNote" style="display:none">Pushing… the theme upload can take a minute.</span>
+      <span class="note" id="busyNote" style="display:none">Pushing… this can take a few seconds.</span>
       <button class="btn ghost" type="button" id="resetBtn" style="display:none">Add another item</button>
     </div>
 
@@ -245,32 +246,45 @@
 (async function () {
   const $ = (id) => document.getElementById(id);
 
-  let cfg;
-  try {
-    const r = await fetch('/api/config');
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    cfg = await r.json();
-  } catch {
-    // Without the config the form can't work at all — say so instead of
-    // leaving a dead page.
-    $('chipStore').textContent = 'server unreachable';
-    $('err').textContent = 'Could not reach the admin server (/api/config failed). Is "npm run admin" still running? Restart it and reload this page.';
-    $('err').style.display = 'block';
+  function showError(msg) {
+    $('err').textContent = msg;
+    $('err').style.display = msg ? 'block' : 'none';
+  }
+
+  // Embedded-only: App Bridge provides the global `shopify` object when this
+  // page is iframed by the Shopify admin. Outside it there is no way to get a
+  // session token, so nothing can work.
+  if (!window.shopify || typeof window.shopify.idToken !== 'function') {
+    $('chipStore').textContent = 'not embedded';
+    showError('This app only works inside the Shopify admin. Open your store admin → Apps → Bracelet Catalogue Admin.');
     $('submit').disabled = true;
     return;
   }
 
-  $('chipStore').textContent = cfg.store ? cfg.store.replace('.myshopify.com', '') : 'no store in .env';
-  $('chipTheme').textContent = 'sprite push ' + (cfg.themeConfigured ? '✓' : '✗');
-  $('chipTheme').className = 'chip ' + (cfg.themeConfigured ? 'on' : 'off');
-  $('chipProducts').textContent = cfg.productsConfigured ? 'products API ✓' : 'products API ✗ (CSV fallback)';
-  $('chipProducts').className = 'chip ' + (cfg.productsConfigured ? 'on' : 'off');
-  if (cfg.dryRun) {
-    const c = document.createElement('span');
-    c.className = 'chip off';
-    c.textContent = 'DRY RUN';
-    document.querySelector('.chips').appendChild(c);
+  /** fetch() with a fresh App Bridge session token attached (they expire after
+   *  ~60 s, so one is requested per call — App Bridge caches internally). */
+  async function authFetch(url, init = {}) {
+    const token = await window.shopify.idToken();
+    return fetch(url, {
+      ...init,
+      headers: { ...(init.headers || {}), Authorization: 'Bearer ' + token },
+    });
   }
+
+  let cfg;
+  try {
+    const r = await authFetch('/api/config');
+    cfg = await r.json();
+    if (cfg.error) throw new Error(cfg.error);
+  } catch (err) {
+    $('chipStore').textContent = 'config failed';
+    showError('Could not load the app configuration' + (err && err.message ? ' — ' + err.message : '') + ' Reload the page; if it persists, run "npm run deploy:admin" again.');
+    $('submit').disabled = true;
+    return;
+  }
+
+  $('chipStore').textContent = cfg.store.replace('.myshopify.com', '');
+  $('chipTheme').textContent = 'theme ' + cfg.themeId;
 
   let superCategory = 'beads';
   let handleTouched = false;
@@ -376,7 +390,73 @@
   renderCategories();
   renderSizes();
 
-  // ── sprite upload + server-side preview ──
+  // ── sprite upload + in-browser processing ──────────────────────────────────
+  // Trim transparent margins, then centre the artwork in a square with the
+  // same SPRITE_PADDING framing the runtime sprite cache expects (must match
+  // src/engine/render/spriteCache.ts and scripts/generate-catalogue-assets.ts).
+  const SPRITE_PADDING = 1.4;
+  const OUT_DIAMETER = 512;
+  const OUT_SIDE = Math.ceil(OUT_DIAMETER * SPRITE_PADDING); // 717
+  const MAX_PIXELS = 16 * 1024 * 1024; // ~16 MP decode cap — bounds memory use
+  const MIN_CONTENT_PX = 32;
+
+  async function processSprite(file) {
+    if (!/^image\/(png|jpeg|webp)$/.test(file.type)) {
+      throw new Error('Use a PNG, JPEG or WebP image.');
+    }
+    let bmp;
+    try {
+      bmp = await createImageBitmap(file);
+    } catch {
+      throw new Error(`Could not decode "${file.name}" — is it a valid PNG/JPEG/WebP file?`);
+    }
+    const w = bmp.width, h = bmp.height;
+    if (!w || !h) throw new Error('Could not decode the image.');
+    if (w * h > MAX_PIXELS) {
+      throw new Error(`Image is too large (${w}×${h}). Keep it under ~16 megapixels — 512–2048 px is plenty.`);
+    }
+
+    const src = document.createElement('canvas');
+    src.width = w; src.height = h;
+    const sctx = src.getContext('2d');
+    sctx.drawImage(bmp, 0, 0);
+    bmp.close();
+
+    // Trim transparent margins so the artwork itself is what gets framed.
+    const data = sctx.getImageData(0, 0, w, h).data;
+    let minX = w, minY = h, maxX = -1, maxY = -1;
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        if (data[(y * w + x) * 4 + 3] > 8) {
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+      }
+    }
+    if (maxX < 0) throw new Error('The image is fully transparent — there is nothing to use as a sprite.');
+
+    const cw = maxX - minX + 1;
+    const ch = maxY - minY + 1;
+    if (Math.max(cw, ch) < MIN_CONTENT_PX) {
+      throw new Error(
+        `The visible artwork is only ${cw}×${ch} px — too small to look good as a sprite. Use at least ${MIN_CONTENT_PX} px (512 px+ recommended).`,
+      );
+    }
+    const scale = OUT_DIAMETER / Math.max(cw, ch);
+    const dw = cw * scale;
+    const dh = ch * scale;
+
+    const out = document.createElement('canvas');
+    out.width = OUT_SIDE; out.height = OUT_SIDE;
+    const octx = out.getContext('2d');
+    octx.imageSmoothingEnabled = true;
+    octx.imageSmoothingQuality = 'high';
+    octx.drawImage(src, minX, minY, cw, ch, (OUT_SIDE - dw) / 2, (OUT_SIDE - dh) / 2, dw, dh);
+    return out.toDataURL('image/png');
+  }
+
   const drop = $('drop');
   drop.addEventListener('click', () => $('file').click());
   drop.addEventListener('dragover', (e) => { e.preventDefault(); drop.classList.add('over'); });
@@ -388,38 +468,32 @@
   });
   $('file').addEventListener('change', () => { if ($('file').files[0]) loadFile($('file').files[0]); });
 
-  function loadFile(file) {
-    const reader = new FileReader();
-    reader.onerror = () => showError(`Could not read "${file.name}" — try re-selecting the file.`);
-    reader.onload = async () => {
-      imageDataUrl = reader.result;
+  async function loadFile(file) {
+    showError('');
+    try {
+      // The preview IS the final sprite — what gets uploaded on submit.
+      imageDataUrl = await processSprite(file);
       $('dropText').innerHTML = `<strong>${file.name.replace(/[<>&]/g, '')}</strong><br />Framed preview → (click to replace)`;
-      try {
-        const res = await fetch('/api/preview', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ image: imageDataUrl }),
-        }).then((r) => r.json());
-        if (res.sprite) {
-          $('previewImg').src = res.sprite;
-          $('previewBox').style.display = 'block';
-        } else {
-          showError(res.error || 'Could not process the image.');
-          imageDataUrl = null;
-        }
-      } catch {
-        showError('Preview failed — is the server still running?');
-      }
-    };
-    reader.readAsDataURL(file);
+      $('previewImg').src = imageDataUrl;
+      $('previewBox').style.display = 'block';
+    } catch (err) {
+      imageDataUrl = null;
+      showError(err.message);
+    }
+  }
+
+  /** Load a sprite thumbnail through the authenticated API (an <img src>
+   *  can't carry the session token, so fetch → blob → object URL). */
+  async function loadSpriteInto(img, handle, onOk) {
+    try {
+      const r = await authFetch(`/api/sprites/${encodeURIComponent(handle)}.png`);
+      if (!r.ok) return;
+      img.onload = () => { if (onOk) onOk(); };
+      img.src = URL.createObjectURL(await r.blob());
+    } catch { /* placeholder stays */ }
   }
 
   // ── submit (add + save-edit) ──
-  function showError(msg) {
-    $('err').textContent = msg;
-    $('err').style.display = msg ? 'block' : 'none';
-  }
-
   function collect() {
     const name = $('name').value.trim();
     const handle = editing ? editing.handle : $('handle').value.trim();
@@ -480,7 +554,7 @@
     $('spin').style.display = 'block';
     $('busyNote').style.display = '';
     try {
-      const res = await fetch(editing ? `/api/items/${encodeURIComponent(editing.handle)}` : '/api/items', {
+      const res = await authFetch(editing ? `/api/items/${encodeURIComponent(editing.handle)}` : '/api/items', {
         method: editing ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -501,7 +575,7 @@
         $('resetBtn').style.display = '';
       }
     } catch {
-      showError('Request failed — is the server still running?');
+      showError('The request failed — check your connection and try again.');
     } finally {
       $('submit').disabled = false;
       $('spin').style.display = 'none';
@@ -519,7 +593,7 @@
     $('banner').className = 'banner';
     $('steps').style.display = 'none';
     $('submit').style.display = '';
-    $('submit').textContent = 'Add & push to Shopify';
+    $('submit').textContent = 'Add & push to the store';
     $('resetBtn').style.display = 'none';
     $('editBar').style.display = 'none';
     $('editWarn').style.display = 'none';
@@ -601,29 +675,26 @@
       $('editWarn').style.display = 'block';
     }
     $('dropText').innerHTML = '<strong>Click or drop an image to replace the sprite</strong><br />Optional — leave empty to keep the current one.';
-    // Show the current sprite (local copy, or pulled from the theme).
-    const img = $('previewImg');
-    img.onload = () => { $('previewBox').style.display = 'block'; };
-    img.src = `/api/sprites/${encodeURIComponent(item.handle)}.png?t=${Date.now()}`;
+    // Show the current sprite as it exists on the theme.
+    loadSpriteInto($('previewImg'), item.handle, () => { $('previewBox').style.display = 'block'; });
     $('submit').textContent = 'Save changes';
   }
 
   // ── manage list ──
   let products = [];
-  let lastMock = false;
   let loadSeq = 0;
 
   async function loadProducts(clearResult = true) {
     const seq = ++loadSeq;
     $('mstatus').className = 'mstatus';
-    $('mstatus').textContent = 'Loading products from Shopify…';
+    $('mstatus').textContent = 'Loading products from the store…';
     $('items').style.display = 'none';
     if (clearResult) {
       $('mbanner').className = 'banner';
       $('msteps').style.display = 'none';
     }
     try {
-      const res = await fetch('/api/products').then((r) => r.json());
+      const res = await authFetch('/api/products').then((r) => r.json());
       if (seq !== loadSeq) return; // a newer refresh superseded this one
       if (res.error) {
         $('mstatus').className = 'mstatus bad';
@@ -631,12 +702,11 @@
         return;
       }
       products = res.products;
-      lastMock = Boolean(res.mock);
       renderList();
     } catch {
       if (seq !== loadSeq) return;
       $('mstatus').className = 'mstatus bad';
-      $('mstatus').textContent = 'Could not load the product list — is the server still running?';
+      $('mstatus').textContent = 'Could not load the product list — check your connection and hit Refresh.';
     }
   }
 
@@ -653,11 +723,9 @@
       a.name.localeCompare(b.name),
     );
 
-    $('mstatus').textContent =
-      (lastMock ? 'DRY RUN — showing the local ledger as mock data, not the live store. ' : '') +
-      (products.length
-        ? `${products.length} configurator item(s) on the store${q ? `, ${shown.length} matching the filter` : ''}.`
-        : 'No configurator items found on the store (products need the "configurator" tag).');
+    $('mstatus').textContent = products.length
+      ? `${products.length} configurator item(s) on the store${q ? `, ${shown.length} matching the filter` : ''}.`
+      : 'No configurator items found on the store (products need the "configurator" tag).';
 
     const box = $('items');
     box.innerHTML = '';
@@ -677,10 +745,7 @@
     thumb.textContent = (p.name[0] ?? '?').toUpperCase();
     const img = document.createElement('img');
     img.alt = '';
-    img.onload = () => { thumb.textContent = ''; thumb.appendChild(img); };
-    // The endpoint serves the local copy when there is one, otherwise the
-    // sprite as it exists on the theme.
-    img.src = `/api/sprites/${encodeURIComponent(p.handle)}.png`;
+    loadSpriteInto(img, p.handle, () => { thumb.textContent = ''; thumb.appendChild(img); });
 
     const info = document.createElement('div');
     info.className = 'info';
@@ -737,7 +802,7 @@
       $('mbanner').className = 'banner';
       $('msteps').style.display = 'none';
       try {
-        const res = await fetch(`/api/items/${encodeURIComponent(p.handle)}`, { method: 'DELETE' }).then((r) => r.json());
+        const res = await authFetch(`/api/items/${encodeURIComponent(p.handle)}`, { method: 'DELETE' }).then((r) => r.json());
         if (res.error) {
           $('mbanner').className = 'banner bad';
           $('mbanner').textContent = res.error;
@@ -753,7 +818,7 @@
         loadProducts(false); // keep the result banner + steps visible
       } catch {
         $('mbanner').className = 'banner bad';
-        $('mbanner').textContent = 'Delete request failed — is the server still running?';
+        $('mbanner').textContent = 'The delete request failed — check your connection and try again.';
         delBtn.disabled = false;
         editBtn.disabled = false;
         delBtn.classList.remove('armed');

@@ -8,3 +8,5 @@ dist-catalogue
 .vite
 .env
 .shopify-deploy
+admin-app/stub-items.generated.json
+.wrangler

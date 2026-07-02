@@ -51,9 +51,12 @@ const PUSH_FILES = [
 
 // Bead/accessory sprite PNGs are hosted as theme assets; the Liquid section
 // references them via asset_url. Two sources: `npm run generate:catalogue`
-// (dist-catalogue/assets/) and the local admin app (admin/sprites/ — items
-// added after the initial import; that dir survives catalogue regeneration).
-// Admin sprites are pushed last so they win on a filename collision.
+// (dist-catalogue/assets/) and admin/sprites/ — local copies of sprites added
+// through the old local admin GUI (that dir survives catalogue regeneration).
+// Items added via the embedded admin app (admin-app/) upload their sprite
+// straight to the theme with no local copy; --nodelete below means those are
+// never touched by this deploy. Admin sprites are pushed last so they win on
+// a filename collision.
 for (const dir of [spriteDir, resolve(root, 'admin/sprites')]) {
   try {
     const sprites = (await readdir(dir)).filter((f) => f.endsWith('.png'));

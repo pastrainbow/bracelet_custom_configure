@@ -14,25 +14,6 @@
       "port": 5180
     },
     {
-      "name": "admin-dry",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["--env-file=.env", "admin/server.mjs", "--dry-run"],
-      "port": 5190
-    },
-    {
-      "name": "admin-dry-verify",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["--env-file=.env", "admin/server.mjs", "--dry-run"],
-      "autoPort": true
-    },
-    {
-      "name": "admin-live-verify",
-      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["--env-file=.env", "admin/server.mjs"],
-      "env": { "ADMIN_PORT": "5195" },
-      "port": 5195
-    },
-    {
       "name": "dev-verify",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
       "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5185", "--strictPort"],

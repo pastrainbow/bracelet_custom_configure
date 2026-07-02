@@ -148,29 +148,31 @@ its styles neither leak into nor inherit from the host theme.
 > (the typical product-page case). Multiple simultaneous instances would need a
 > per-instance store/context — straightforward to add if required.
 
-## Catalogue admin app
+## Catalogue admin app (embedded in the Shopify admin)
 
-A small local GUI for adding a new bead/accessory to the live catalogue —
-name, category, per-size price & stock and the sprite image — and pushing it
-to Shopify in one click:
+Managing the configurator's beads & accessories — name, category, per-size
+price & stock, sprite image — happens in an **embedded Shopify custom app**:
+Shopify admin → **Apps** → *Bracelet Catalogue Admin*. The app is a single
+Cloudflare Worker ([`admin-app/worker.mjs`](./admin-app/worker.mjs) +
+[`admin-app/ui.html`](./admin-app/ui.html)); one-time Cloudflare/Dev-Dashboard
+setup is documented in [`admin-app/SETUP.md`](./admin-app/SETUP.md), after
+which code changes ship with one command:
 
 ```bash
-npm run admin   # http://localhost:5190
+npm run deploy:admin
 ```
 
-Per submitted item it (1) trims + frames the uploaded image to the exact
-sprite layout the widget expects and saves it under `admin/sprites/`,
-(2) pushes it to the theme's `assets/` as `sprite-<handle>.png` via the
-Shopify CLI (Theme Access token), (3) creates the product via the Admin
-GraphQL API — handle = item id, `configurator`/`super:`/`cat:` tags, one
-"Size" variant per size with SKU and stock — and (4) publishes it to the
-Online Store channel, where the `bracelet-configurator-items` smart
-collection picks it up automatically.
+Per submitted item it (1) trims + frames the uploaded image **in the
+browser** to the exact sprite layout the widget expects, (2) writes it to the
+theme's `assets/` as `sprite-<handle>.png` via the Admin GraphQL
+`themeFilesUpsert` mutation (`write_themes` scope — no Shopify CLI or Theme
+Access token involved), (3) creates/updates the product via `productSet` —
+handle = item id, `configurator`/`super:`/`cat:` tags, one "Size" variant per
+size with SKU and stock — and (4) publishes it to the Online Store channel,
+where the `bracelet-configurator-items` smart collection picks it up
+automatically.
 
-Step 3–4 need Admin API credentials — `SHOPIFY_CLIENT_ID` +
-`SHOPIFY_CLIENT_SECRET` from a Dev Dashboard app (exchanged automatically for
-a 24h token via the client credentials grant), or a legacy static
-`SHOPIFY_PRODUCTS_TOKEN` (see `.env.example`); without them the app still
-pushes the sprite and writes an import-ready CSV to `admin/pending-import/`
-instead. `--dry-run` (or
-`ADMIN_DRY_RUN=1`) exercises the whole flow without touching Shopify.
+Auth: the UI runs only inside the store's admin iframe, every API call is
+verified against an App Bridge **session token**, and Admin API access uses
+the Dev Dashboard app's client-credentials grant (`SHOPIFY_CLIENT_ID` +
+`SHOPIFY_CLIENT_SECRET` in `.env`, injected into the worker at deploy time).
