@@ -85,6 +85,64 @@
   (function () {
     var SELECTOR = '#bracelet-configurator';
 
+    // ── Design autosave ─────────────────────────────────────────────────────
+    // The widget autosaves every design change to localStorage by itself.
+    // For logged-in customers we additionally mirror the draft into a cart
+    // attribute via /cart/update.js — Shopify persists carts server-side and
+    // restores them for logged-in customers across devices, and it's the only
+    // account-following storage writable from the storefront without an app
+    // backend (customer metafields need the Admin API). The underscore prefix
+    // keeps the attribute out of shopper-facing checkout fields.
+    var CUSTOMER_ID = {% if customer %}{{ customer.id | json }}{% else %}null{% endif %};
+    var DRAFT_ATTR = '_bracelet_draft';
+
+    // Read the account draft from the cart before mounting (logged-in only).
+    function fetchAccountDraft() {
+      if (!CUSTOMER_ID) return Promise.resolve(null);
+      return fetch('/cart.js')
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (cart) {
+          var raw = cart && cart.attributes && cart.attributes[DRAFT_ATTR];
+          if (!raw) return null;
+          try {
+            var snap = JSON.parse(raw);
+            return snap && typeof snap.code === 'string' && typeof snap.updatedAt === 'number'
+              ? snap
+              : null;
+          } catch (e) {
+            return null;
+          }
+        })
+        .catch(function () { return null; });
+    }
+
+    // Push drafts serially: one request in flight, latest snapshot wins.
+    var draftPending = null;
+    var draftInFlight = false;
+    function pushAccountDraft(snapshot) {
+      if (!CUSTOMER_ID) return;
+      draftPending = snapshot;
+      if (draftInFlight) return;
+      draftInFlight = true;
+      (function flush() {
+        var snap = draftPending;
+        draftPending = null;
+        var attributes = {};
+        attributes[DRAFT_ATTR] = JSON.stringify(snap);
+        fetch('/cart/update.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ attributes: attributes }),
+          keepalive: true // survives the add-to-cart redirect / tab close
+        })
+          .catch(function () { /* offline — localStorage copy still saved */ })
+          .then(function () {
+            if (draftPending) flush();
+            else draftInFlight = false;
+          });
+      })();
+    }
+
     // Size the configurator to fill the space below whatever sits above it
     // (header + announcement bar), without needing to know the header's height.
     function fit() {
@@ -110,9 +168,24 @@
       el.dataset.mounted = '1';
       fit();
 
+      // Logged-in shoppers: read any autosaved draft from the cart first so
+      // the widget can restore it (it picks the newest of this and its own
+      // localStorage draft). Guests mount immediately (draft resolves null).
+      fetchAccountDraft().then(function (accountDraft) {
+        mountWidget(el, accountDraft);
+      });
+    }
+
+    function mountWidget(el, accountDraft) {
       try {
         window.BraceletConfigurator.mount(el, {
           wristHint: 'Wrist size: 15.5 – 16.5 cm',
+          customerId: CUSTOMER_ID,
+          savedDesign: accountDraft,
+          onAutoSave: function (snapshot) {
+            // Called (already debounced) on every design change.
+            pushAccountDraft(snapshot);
+          },
           onAddToCart: function (payload) {
             // The design is priced by adding each component's real Shopify
             // variant (payload.lines: one line per distinct variant, with

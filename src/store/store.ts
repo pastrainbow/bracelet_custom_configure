@@ -10,6 +10,7 @@ import {
   type AddToCartPayload,
   type ConfiguratorOptions,
 } from '@/shopify/integration';
+import { writeLocalDraft, type DesignSnapshot } from '@/persistence/autosave';
 
 interface DerivedTotals {
   count: number;
@@ -22,6 +23,37 @@ export type MobilePanel = 'add' | 'order';
 
 const ERROR_DURATION_MS = 2600;
 let errorTimer: ReturnType<typeof setTimeout> | null = null;
+
+// ─── AUTOSAVE ────────────────────────────────────────────────────────────────
+// Every design change persists automatically: to localStorage always, and to
+// the host via options.onAutoSave (the Shopify embed syncs logged-in
+// customers' drafts to a cart attribute). Disabled until the studio has
+// applied any restored draft (enableAutosave), so the initial empty state
+// never clobbers a stored design.
+
+const AUTOSAVE_DEBOUNCE_MS = 800;
+let autosaveEnabled = false;
+let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+/** Signature of the last persisted state, to skip no-op saves (e.g. a
+ *  selection change re-emits the engine summary without changing the design). */
+let lastSavedSig: string | null = null;
+let pagehideHooked = false;
+
+type DesignState = Pick<ConfiguratorState, 'items' | 'beadSize' | 'texture' | 'wristSizeCm'>;
+
+function snapshotOf(state: DesignState): DesignSnapshot {
+  return {
+    code: encodeDesign(state.items),
+    beadSize: state.beadSize,
+    texture: state.texture,
+    wristSizeCm: state.wristSizeCm,
+    updatedAt: Date.now(),
+  };
+}
+
+function sigOf(s: DesignSnapshot): string {
+  return `${s.code}|${s.beadSize}|${s.texture}|${s.wristSizeCm ?? ''}`;
+}
 
 interface ConfiguratorState {
   engine: BraceletEngine | null;
@@ -49,6 +81,8 @@ interface ConfiguratorState {
   // wiring
   attachEngine: (engine: BraceletEngine | null) => void;
   setOptions: (options: ConfiguratorOptions) => void;
+  /** Arm autosave once the studio has applied any restored draft. */
+  enableAutosave: () => void;
   setCatalogueReady: (ready: boolean) => void;
   syncFromEngine: (summary: EngineSummary) => void;
   showError: (msg: string) => void;
@@ -95,19 +129,34 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   setOptions: (options) => set({ options }),
   setCatalogueReady: (ready) => set({ catalogueReady: ready }),
 
+  enableAutosave: () => {
+    // Seed the signature with the just-restored state so restoring alone
+    // doesn't trigger a (pointless) save.
+    lastSavedSig = sigOf(snapshotOf(get()));
+    autosaveEnabled = true;
+    if (!pagehideHooked && typeof window !== 'undefined') {
+      pagehideHooked = true;
+      // Flush a pending debounce when the shopper leaves mid-edit (e.g. the
+      // add-to-cart redirect) so the last change isn't lost.
+      window.addEventListener('pagehide', () => flushAutosave(get));
+    }
+  },
+
   showError: (msg) => {
     if (errorTimer) clearTimeout(errorTimer);
     set({ error: { msg, id: Date.now() } });
     errorTimer = setTimeout(() => set({ error: null }), ERROR_DURATION_MS);
   },
 
-  syncFromEngine: ({ items, mode, selectedId }) =>
+  syncFromEngine: ({ items, mode, selectedId }) => {
     set((prev) => ({
       items,
       mode,
       selectedId,
       progress: Math.max(prev.progress, items.length > 0 ? 1 : 0, mode !== 'free' ? 2 : 0),
-    })),
+    }));
+    scheduleAutosave(get);
+  },
 
   // The engine reports overlap rejections via its onError callback (wired to
   // showError), so these actions just delegate.
@@ -121,20 +170,26 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
     // Only changes the size of beads added from now on; existing beads stay.
     set({ beadSize: mm });
     get().engine?.setDefaultBeadSize(mm);
+    scheduleAutosave(get);
   },
 
   setAllBeadSize: (mm) => {
     // Resize every existing bead; rejected if it would exceed the max length.
     const applied = get().engine?.setBeadSize(mm);
     if (applied !== false) set({ beadSize: mm });
+    scheduleAutosave(get);
   },
 
   setTexture: (id) => {
     set({ texture: id });
     get().engine?.setTexture(id);
+    scheduleAutosave(get);
   },
-  
-  setWristSize: (cm) => set({ wristSizeCm: cm }),
+
+  setWristSize: (cm) => {
+    set({ wristSizeCm: cm });
+    scheduleAutosave(get);
+  },
 
   toggleArrange: () => get().engine?.toggleArrange(),
 
@@ -203,6 +258,38 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
     }
   },
 }));
+
+type StateGetter = () => Pick<ConfiguratorState, 'items' | 'beadSize' | 'texture' | 'wristSizeCm' | 'options'>;
+
+function scheduleAutosave(get: StateGetter): void {
+  if (!autosaveEnabled) return;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(() => {
+    autosaveTimer = null;
+    flushAutosave(get);
+  }, AUTOSAVE_DEBOUNCE_MS);
+}
+
+function flushAutosave(get: StateGetter): void {
+  if (!autosaveEnabled) return;
+  if (autosaveTimer) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+  }
+  const state = get();
+  const snapshot = snapshotOf(state);
+  const sig = sigOf(snapshot);
+  if (sig === lastSavedSig) return;
+  lastSavedSig = sig;
+  writeLocalDraft(state.options.customerId, snapshot);
+  try {
+    void state.options.onAutoSave?.(snapshot);
+  } catch (err) {
+    // Autosave must never break the studio — log and move on.
+    // eslint-disable-next-line no-console
+    console.warn('[BraceletConfigurator] autosave hook failed', err);
+  }
+}
 
 // ─── DERIVED SELECTORS ───────────────────────────────────────────────────────
 

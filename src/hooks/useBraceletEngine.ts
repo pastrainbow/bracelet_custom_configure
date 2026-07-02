@@ -2,6 +2,7 @@ import { useEffect, type RefObject } from 'react';
 import { BraceletEngine } from '@/engine/BraceletEngine';
 import { useStore } from '@/store/store';
 import { decodeDesign } from '@/shopify/integration';
+import { resolveRestoreDesign } from '@/persistence/autosave';
 
 /**
  * Creates and owns a BraceletEngine for the lifetime of the studio, wiring it
@@ -40,9 +41,19 @@ export function useBraceletEngine(
       (window as unknown as { __braceletEngine?: BraceletEngine }).__braceletEngine = engine;
     }
 
-    if (options.initialDesign) {
-      engine.loadDesign(decodeDesign(options.initialDesign));
+    // Restore a design: an explicit initialDesign option, a ?design= share
+    // link, or the newest autosaved draft (account or localStorage).
+    const restore = resolveRestoreDesign(options);
+    if (restore) {
+      const store = useStore.getState();
+      if (restore.texture) store.setTexture(restore.texture);
+      if (restore.beadSize) store.setBeadSize(restore.beadSize);
+      if (restore.wristSizeCm != null) store.setWristSize(restore.wristSizeCm);
+      if (restore.code) engine.loadDesign(decodeDesign(restore.code));
     }
+    // Only start autosaving once the restored state is applied, so mounting
+    // never overwrites a stored draft with the initial empty studio.
+    useStore.getState().enableAutosave();
 
     const onResize = () => engine.resize();
     const observer = new ResizeObserver(onResize);

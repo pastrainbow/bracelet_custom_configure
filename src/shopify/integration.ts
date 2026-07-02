@@ -1,5 +1,8 @@
 import type { PlacedItem, RawCatalogue } from '@/types';
 import { priceFor, variantFor } from '@/data/pricing';
+// Type-only: no runtime cycle with persistence/autosave (which imports this
+// module's ConfiguratorOptions type the same way).
+import type { DesignSnapshot } from '@/persistence/autosave';
 
 /**
  * One `/cart/add.js` line: a Shopify variant with a quantity. The design is
@@ -92,6 +95,26 @@ export interface ConfiguratorOptions {
   catalogue?: RawCatalogue;
   /** Restore a previously saved design on mount. */
   initialDesign?: string;
+  /**
+   * Logged-in Shopify customer id (or null/undefined for guests). Namespaces
+   * the localStorage draft so two customers sharing a browser don't see each
+   * other's autosaved design.
+   */
+  customerId?: string | number | null;
+  /**
+   * An autosaved draft the host restored from remote storage (the Shopify
+   * embed reads it from the customer's cart attributes). Competes with the
+   * localStorage draft by `updatedAt` — the newest wins. Ignored when an
+   * explicit `initialDesign` or a `?design=` share link is present.
+   */
+  savedDesign?: DesignSnapshot | null;
+  /**
+   * Called (debounced) every time the design changes — items, sizes, texture
+   * or wrist size. The widget always persists the draft to localStorage by
+   * itself; wire this to additionally sync it remotely (the Shopify embed
+   * stores it in a cart attribute for logged-in customers).
+   */
+  onAutoSave?: (snapshot: DesignSnapshot) => void | Promise<void>;
   /** Override the wrist-size hint shown in the header. */
   wristHint?: string;
   /** Brand name shown on the shareable card (default "Stone Studio"). */

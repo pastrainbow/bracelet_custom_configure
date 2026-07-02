@@ -7,3 +7,4 @@ export type {
   AddToCartPayload,
 } from './shopify/integration';
 export { encodeDesign, decodeDesign } from './shopify/integration';
+export type { DesignSnapshot } from './persistence/autosave';

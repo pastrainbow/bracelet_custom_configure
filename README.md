@@ -92,6 +92,27 @@ mount('#bracelet-configurator', {
 });
 ```
 
+**Design autosave.** Every design change (beads, sizes, texture, wrist size)
+is persisted automatically, debounced ~0.8 s, as a `DesignSnapshot`
+(`src/persistence/autosave.ts`):
+
+- **Always** to `localStorage` (`bracelet-design-draft:<customerId|guest>`) —
+  chosen over cookies for its larger quota and because drafts never need to
+  travel with requests.
+- **Logged-in customers** additionally sync to remote storage via the
+  `onAutoSave(snapshot)` mount option. The Liquid section wires it to a
+  `_bracelet_draft` **cart attribute** (`/cart/update.js`), which Shopify
+  persists server-side with the customer's cart — the only account-following
+  storage writable from the storefront without an app backend. It reads the
+  attribute back (`/cart.js`) before mounting and passes it as `savedDesign`.
+
+On mount the widget restores, in priority order: `initialDesign` →
+a `?design=…&size=…` share link → the **newest** of `savedDesign` and the
+local draft (a guest draft made before logging in also competes, so logging
+in never loses the design). Autosave only arms after restore, so an empty
+first paint can't clobber a stored draft. Pass `customerId` to namespace
+local drafts per customer.
+
 The `umd` build attaches `window.BraceletConfigurator.mount`. A ready-to-use
 Liquid snippet is in
 [`shopify/bracelet-configurator.liquid`](./shopify/bracelet-configurator.liquid).
