@@ -77,6 +77,8 @@ interface LiveItem {
   targetAngle: number;
   startX: number;
   startY: number;
+  /** Sprite rotation at the start of the arrange tween (rad). */
+  startRot: number;
 }
 
 type DragKind = 'free' | 'bracelet-bead' | 'rotate';
@@ -616,7 +618,7 @@ export class BraceletEngine {
     Matter.Body.setAngularVelocity(body, (Math.random() - 0.5) * 0.5);
     Matter.World.add(this.pw.world, body);
 
-    this.items.push({ id: makeId(), def, size, body, targetAngle: 0, startX: x, startY: y });
+    this.items.push({ id: makeId(), def, size, body, targetAngle: 0, startX: x, startY: y, startRot: 0 });
     this.emit();
   }
 
@@ -629,10 +631,15 @@ export class BraceletEngine {
     const body = createBead(c, c, this.beadRadius(this.beadSize), true);
     Matter.World.add(this.pw.world, body);
 
-    // Existing beads animate from their current ring positions.
+    // Existing beads animate from their current ring positions/orientations.
     for (const item of this.items) {
       item.startX = item.body.position.x;
       item.startY = item.body.position.y;
+      const finalRot = item.targetAngle + Math.PI / 2;
+      item.startRot =
+        this.mode === 'arranging'
+          ? item.startRot + shortestAngle(finalRot - item.startRot) * easeInOut(this.arrangeProgress)
+          : finalRot + this.braceletAngle;
     }
 
     this.items.push({
@@ -643,6 +650,7 @@ export class BraceletEngine {
       targetAngle: 0,
       startX: c,
       startY: c,
+      startRot: 0,
     });
 
     this.drag = null;
@@ -650,6 +658,11 @@ export class BraceletEngine {
     this.mode = 'arranging';
     this.arrangeProgress = 0;
     this.emit(); // computes targetAngles + fitScale via layoutRing
+
+    // The new bead grows out of the centre; spawn it already at its final ring
+    // orientation so only its position tweens.
+    const added = this.items[this.items.length - 1];
+    added.startRot = added.targetAngle + Math.PI / 2;
   }
 
   // ── arrange / scatter ────────────────────────────────────────────────────────
@@ -660,6 +673,7 @@ export class BraceletEngine {
     for (const item of this.items) {
       item.startX = item.body.position.x;
       item.startY = item.body.position.y;
+      item.startRot = item.body.angle; // free mode draws at the physics angle
       Matter.Body.setStatic(item.body, true);
     }
     this.mode = 'arranging';
@@ -673,6 +687,9 @@ export class BraceletEngine {
     this.drag = null;
     this.canvas.style.cursor = 'none';
     for (const item of this.items) {
+      // Carry the ring orientation into the physics body so the sprite doesn't
+      // snap when free-mode rendering switches to body.angle.
+      Matter.Body.setAngle(item.body, item.targetAngle + this.braceletAngle + Math.PI / 2);
       Matter.Body.setStatic(item.body, false);
       Matter.Body.setVelocity(item.body, { x: (Math.random() - 0.5) * 4, y: (Math.random() - 0.5) * 4 });
     }
@@ -832,8 +849,12 @@ export class BraceletEngine {
       const ty = cy + Math.sin(item.targetAngle) * br;
       const px = item.startX + (tx - item.startX) * t;
       const py = item.startY + (ty - item.startY) * t;
+      // Ease each sprite toward its ring orientation (radially outward) along
+      // the shortest arc from wherever it was facing.
+      const finalRot = item.targetAngle + Math.PI / 2;
+      const rot = item.startRot + shortestAngle(finalRot - item.startRot) * t;
       Matter.Body.setPosition(item.body, { x: px, y: py });
-      drawItem(ctx, px, py, r, item.def, 0, this.dpr);
+      drawItem(ctx, px, py, r, item.def, rot, this.dpr);
       if (item.id === this.selectedId) drawSelectionRing(ctx, px, py, r);
     }
 
@@ -858,7 +879,9 @@ export class BraceletEngine {
       const x = cx + Math.cos(angle) * br;
       const y = cy + Math.sin(angle) * br;
       Matter.Body.setPosition(item.body, { x, y });
-      drawItem(ctx, x, y, r, item.def, 0, this.dpr);
+      // Orient the sprite radially (top bead upright) so rotating the bracelet
+      // carries the artwork around with it instead of only translating it.
+      drawItem(ctx, x, y, r, item.def, angle + Math.PI / 2, this.dpr);
       if (item.id === this.selectedId) drawSelectionRing(ctx, x, y, r);
     }
 
@@ -873,7 +896,7 @@ export class BraceletEngine {
         const x = cx + Math.cos(a) * br;
         const y = cy + Math.sin(a) * br;
         Matter.Body.setPosition(item.body, { x, y });
-        drawItem(ctx, x, y, r * 1.12, item.def, 0, this.dpr);
+        drawItem(ctx, x, y, r * 1.12, item.def, a + Math.PI / 2, this.dpr);
       }
     }
   }
