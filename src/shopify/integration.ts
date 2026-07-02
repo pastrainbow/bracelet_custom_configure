@@ -1,9 +1,32 @@
 import type { PlacedItem, RawCatalogue } from '@/types';
+import { priceFor, variantFor } from '@/data/pricing';
+
+/**
+ * One `/cart/add.js` line: a Shopify variant with a quantity. The design is
+ * priced by adding each component's real variant to the cart, so the cart
+ * total is exactly the sum the widget displayed — no app or draft order.
+ */
+export interface CartLine {
+  /** Shopify variant id, or null when the catalogue carries none (stub/dev). */
+  variantId: number | null;
+  defId: string;
+  name: string;
+  /** Diameter in mm (accessories report the placed size; they're one-size). */
+  size: number;
+  quantity: number;
+  /** Unit price as displayed in the widget (the variant's Shopify price). */
+  unitPrice: number;
+}
 
 /** Payload handed to the host (Shopify) when the shopper adds their design. */
 export interface AddToCartPayload {
   /** One entry per placed bead/accessory, in bracelet order. */
-  items: { id: string; defId: string; name: string; size: number; price: number }[];
+  items: { id: string; defId: string; name: string; size: number; price: number; variantId: number | null }[];
+  /**
+   * `items` aggregated by Shopify variant, ready to POST to `/cart/add.js`
+   * so the cart charges the real per-component prices.
+   */
+  lines: CartLine[];
   beadCount: number;
   totalPrice: number;
   estimatedLengthCm: number;
@@ -11,6 +34,37 @@ export interface AddToCartPayload {
   wristSizeCm: number | null;
   /** Compact, shareable encoding of the design (defId@size,defId@size,…). */
   designCode: string;
+  /**
+   * Small JPEG render of the arranged bracelet as a data URL (~10–25 KB), or
+   * null when unavailable. The Shopify cart handler stores it in a hidden
+   * line-item property so the cart can show the designed bracelet as the
+   * product image of the grouped "Custom Bracelet" line.
+   */
+  previewImage: string | null;
+}
+
+/** Aggregate placed items into cart lines, one per distinct Shopify variant
+ *  (items without a variant id group by defId+size so they still count). */
+export function toCartLines(items: PlacedItem[]): CartLine[] {
+  const lines = new Map<string, CartLine>();
+  for (const it of items) {
+    const variantId = variantFor(it.def, it.size);
+    const key = variantId !== null ? `v:${variantId}` : `d:${it.def.id}@${it.size}`;
+    const line = lines.get(key);
+    if (line) {
+      line.quantity += 1;
+    } else {
+      lines.set(key, {
+        variantId,
+        defId: it.def.id,
+        name: it.def.name,
+        size: it.size,
+        quantity: 1,
+        unitPrice: priceFor(it.def, it.size),
+      });
+    }
+  }
+  return [...lines.values()];
 }
 
 /** Options supplied when mounting the widget into a Shopify theme. */

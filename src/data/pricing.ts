@@ -42,6 +42,22 @@ export function priceFor(def: ItemDef, mm: number): number {
   return def.prices[nearest];
 }
 
+/**
+ * Shopify variant id backing an item at a given size, or null when the
+ * catalogue carries none (stub catalogue, or a feed predating variant ids).
+ * Mirrors `priceFor`'s nearest-size fallback so the variant charged in the
+ * cart always matches the price the widget displayed.
+ */
+export function variantFor(def: ItemDef, mm: number): number | null {
+  if (isAccessory(def)) return def.variantId ?? null;
+  const ids = def.variantIds ?? {};
+  if (ids[mm]) return ids[mm];
+  const sized = Object.keys(ids).map(Number);
+  if (!sized.length) return null;
+  const nearest = sized.reduce((a, b) => (Math.abs(b - mm) < Math.abs(a - mm) ? b : a));
+  return ids[nearest] ?? null;
+}
+
 /** Compact price label, e.g. "$2" or "$2.80". */
 export function formatPrice(n: number): string {
   return Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`;

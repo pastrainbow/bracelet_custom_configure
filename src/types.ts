@@ -29,6 +29,12 @@ export interface BeadDef extends ItemCommon {
   sizes?: number[];
   /** Price per bead for each offered diameter, keyed by mm. */
   prices: Record<number, number>;
+  /**
+   * Shopify variant id per offered diameter, keyed by mm. Set for
+   * Shopify-sourced items; absent on the stub catalogue. Used to add the real
+   * variants to the cart so the cart total matches the configurator price.
+   */
+  variantIds?: Record<number, number>;
 }
 
 export type AccessoryShape =
@@ -49,6 +55,8 @@ export type AccessoryShape =
 export interface AccessoryDef extends ItemCommon {
   /** Accessories are one-size, so a single price. */
   price: number;
+  /** Shopify variant id (the single "One Size" variant); absent on the stub. */
+  variantId?: number;
   color: string;
   shape: AccessoryShape;
 }
@@ -101,6 +109,10 @@ export interface RawCatalogueItem {
   price?: number;
   /** Bead price per offered diameter, keyed by mm (JSON keys are strings). */
   prices?: Record<string, number>;
+  /** Shopify variant id of the item's single/first variant (accessories). */
+  variantId?: number;
+  /** Bead variant id per offered diameter, keyed by mm (JSON keys are strings). */
+  variantIds?: Record<string, number>;
   superCategory: SuperCategory;
   category: string;
   imageUrl?: string;

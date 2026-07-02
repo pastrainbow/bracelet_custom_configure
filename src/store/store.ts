@@ -1,11 +1,12 @@
 import { create } from 'zustand';
 import type { EngineSummary, ItemDef, PlacedItem, StudioMode } from '@/types';
 import { DEFAULT_BEAD_SIZE } from '@/config/constants';
-import { priceFor } from '@/data/pricing';
+import { priceFor, variantFor } from '@/data/pricing';
 import type { TextureId } from '@/data/textures';
 import type { BraceletEngine } from '@/engine/BraceletEngine';
 import {
   encodeDesign,
+  toCartLines,
   type AddToCartPayload,
   type ConfiguratorOptions,
 } from '@/shopify/integration';
@@ -142,7 +143,7 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
   setMobilePanel: (panel) => set({ mobilePanel: panel }),
 
   addToCart: async () => {
-    const { items, options, wristSizeCm } = get();
+    const { items, options, wristSizeCm, engine } = get();
     if (items.length === 0) return;
 
     const totals = selectTotals(get());
@@ -153,12 +154,15 @@ export const useStore = create<ConfiguratorState>((set, get) => ({
         name: it.def.name,
         size: it.size,
         price: priceFor(it.def, it.size),
+        variantId: variantFor(it.def, it.size),
       })),
+      lines: toCartLines(items),
       beadCount: totals.count,
       totalPrice: totals.totalPrice,
       estimatedLengthCm: totals.lengthCm,
       wristSizeCm,
       designCode: encodeDesign(items),
+      previewImage: engine?.renderThumbnail() ?? null,
     };
 
     set({ progress: 3 });

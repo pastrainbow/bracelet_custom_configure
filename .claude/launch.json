@@ -20,10 +20,16 @@
       "port": 5190
     },
     {
+      "name": "admin-dry-verify",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["--env-file=.env", "admin/server.mjs", "--dry-run"],
+      "autoPort": true
+    },
+    {
       "name": "dev-verify",
       "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-      "runtimeArgs": ["node_modules/vite/bin/vite.js"],
-      "autoPort": true
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--port", "5185", "--strictPort"],
+      "port": 5185
     }
   ]
 }

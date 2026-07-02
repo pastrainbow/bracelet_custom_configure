@@ -171,7 +171,7 @@
       <button class="btn" type="submit" id="submit">Add &amp; push to Shopify</button>
       <div class="spin" id="spin"></div>
       <span class="note" id="busyNote" style="display:none">Pushing… the theme upload can take a minute.</span>
-      <button class="btn ghost" type="button" id="reset" style="display:none">Add another item</button>
+      <button class="btn ghost" type="button" id="resetBtn" style="display:none">Add another item</button>
     </div>
 
     <div class="banner" id="banner"></div>
@@ -398,7 +398,7 @@
         : 'Some steps failed — see below.';
       if (res.ok) {
         $('submit').style.display = 'none';
-        $('reset').style.display = '';
+        $('resetBtn').style.display = '';
       }
     } catch {
       showError('Request failed — is the server still running?');
@@ -409,7 +409,7 @@
     }
   });
 
-  $('reset').addEventListener('click', () => {
+  $('resetBtn').addEventListener('click', () => {
     $('form').reset();
     handleTouched = false;
     imageDataUrl = null;
@@ -418,7 +418,7 @@
     $('banner').className = 'banner';
     $('steps').style.display = 'none';
     $('submit').style.display = '';
-    $('reset').style.display = 'none';
+    $('resetBtn').style.display = 'none';
     renderCategories();
     renderSizes();
   });

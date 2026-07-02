@@ -93,8 +93,32 @@ mount('#bracelet-configurator', {
 ```
 
 The `umd` build attaches `window.BraceletConfigurator.mount`. A ready-to-use
-Liquid snippet (AJAX cart add with the design stored as line-item properties)
-is in [`shopify/bracelet-configurator.liquid`](./shopify/bracelet-configurator.liquid).
+Liquid snippet is in
+[`shopify/bracelet-configurator.liquid`](./shopify/bracelet-configurator.liquid).
+Its cart handler posts `payload.lines` — the design aggregated into one line
+per distinct Shopify variant (real variant ids come with the catalogue feed) —
+to `/cart/add.js`, so the cart total always equals the configurator's total
+and stock is drawn from the actual bead/accessory variants.
+
+**One cart row per bracelet.** Every line of a design carries a shared, unique
+`_bracelet_id` line-item property (plus `_design`, the exact design code, and
+`_thumb`, a small JPEG render of the arranged bracelet produced at
+add-to-cart time). Two modified Dawn sections, pushed by the deploy script,
+turn those hidden properties into the shopper-facing display:
+
+- [`shopify/main-cart-items.liquid`](./shopify/main-cart-items.liquid) —
+  collapses each bracelet's bead lines into a single **"Custom Bracelet"** row
+  whose image is the design render, priced at the summed line prices, with a
+  component breakdown and a remove button that deletes all of the bracelet's
+  lines at once.
+- [`shopify/cart-icon-bubble.liquid`](./shopify/cart-icon-bubble.liquid) —
+  makes the header cart count treat each bracelet as one item.
+
+Both are copies of the live theme's sections with clearly-marked
+`CUSTOM BRACELET` blocks; after a Dawn theme update, re-pull the sections and
+re-apply those blocks. Note the grouping is cart-page display only: Shopify's
+**checkout** (not theme-customisable on non-Plus plans) still lists the
+individual bead variants — the charged total is identical either way.
 
 The widget is scoped under a `.bcfg` root with Tailwind's preflight disabled, so
 its styles neither leak into nor inherit from the host theme.

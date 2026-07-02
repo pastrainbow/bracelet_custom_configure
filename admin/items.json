@@ -97,5 +97,39 @@
     ],
     "mode": "api",
     "addedAt": "2026-07-02T15:52:19.616Z"
+  },
+  {
+    "name": "RANDOM STUFF",
+    "handle": "random-stuff",
+    "superCategory": "beads",
+    "category": "crystal",
+    "variants": [
+      {
+        "label": "6 mm",
+        "sku": "random-stuff-6",
+        "qty": 10,
+        "price": 12
+      },
+      {
+        "label": "10 mm",
+        "sku": "random-stuff-10",
+        "qty": 10,
+        "price": 23
+      },
+      {
+        "label": "12 mm",
+        "sku": "random-stuff-12",
+        "qty": 10,
+        "price": 12
+      },
+      {
+        "label": "14 mm",
+        "sku": "random-stuff-14",
+        "qty": 10,
+        "price": 23
+      }
+    ],
+    "mode": "api",
+    "addedAt": "2026-07-02T16:12:17.689Z"
   }
 ]

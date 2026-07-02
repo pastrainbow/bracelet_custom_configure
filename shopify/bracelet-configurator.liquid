@@ -42,6 +42,13 @@
       {%- assign mm = v.option1 | remove: ' mm' | remove: 'mm' | strip -%}
       {%- if mm != '' and mm != 'One Size' -%}{%- unless firstPrice -%},{%- endunless -%}"{{ mm | times: 1 }}":{{ v.price | divided_by: 100.0 }}{%- assign firstPrice = false -%}{%- endif -%}
     {%- endfor -%}
+  },"variantId":{{ p.variants.first.id }},"variantIds":{
+    {%- comment -%} Per-size variant ids, mirroring "prices". Add-to-cart posts these real variants so the cart total equals the widget total. "variantId" (first variant) covers one-size accessories. {%- endcomment -%}
+    {%- assign firstVid = true -%}
+    {%- for v in p.variants -%}
+      {%- assign mm = v.option1 | remove: ' mm' | remove: 'mm' | strip -%}
+      {%- if mm != '' and mm != 'One Size' -%}{%- unless firstVid -%},{%- endunless -%}"{{ mm | times: 1 }}":{{ v.id }}{%- assign firstVid = false -%}{%- endif -%}
+    {%- endfor -%}
   },"superCategory":{{ superCat | json }},"category":{{ catSlug | json }},"imageUrl":{{ 'sprite-' | append: p.handle | append: '.png' | asset_url | json }},"sizes":[
     {%- assign firstSize = true -%}
     {%- for v in p.variants -%}
@@ -107,19 +114,59 @@
         window.BraceletConfigurator.mount(el, {
           wristHint: 'Wrist size: 15.5 – 16.5 cm',
           onAddToCart: function (payload) {
-            return fetch('/cart/add.js', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                id: {{ product.selected_or_first_available_variant.id | json }},
-                quantity: 1,
-                properties: {
-                  'Design': payload.designCode,
-                  'Bead Count': payload.beadCount,
-                  'Length (cm)': payload.estimatedLengthCm,
-                  'Beads': payload.items.map(function (i) { return i.name + ' ' + i.size + 'mm'; }).join(', ')
-                }
-              })
+            // The design is priced by adding each component's real Shopify
+            // variant (payload.lines: one line per distinct variant, with
+            // quantity), so the cart total is exactly the widget's total and
+            // stock is drawn from the right variants. A shared, unique
+            // '_bracelet_id' property marks the lines as one bracelet: the
+            // customised cart section (sections/main-cart-items.liquid)
+            // collapses them into a single "Custom Bracelet" row whose image
+            // is the '_thumb' render, and the unique id keeps two designs —
+            // even identical ones — from merging. Underscore-prefixed
+            // properties stay hidden from the shopper but ride along to the
+            // order for fulfilment ('_design' is the exact design code).
+            var missing = payload.lines.filter(function (l) { return !l.variantId; });
+            if (missing.length) {
+              return Promise.reject(new Error(
+                'These items cannot be ordered right now: ' +
+                missing.map(function (l) { return l.name; }).join(', ') +
+                '. Please remove them or try again later.'
+              ));
+            }
+            var braceletId = 'b' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+            var properties = {
+              'Bracelet': payload.beadCount + ' beads, ~' + payload.estimatedLengthCm + ' cm',
+              '_design': payload.designCode,
+              '_bracelet_id': braceletId
+            };
+            if (payload.wristSizeCm) {
+              properties['Wrist size'] = payload.wristSizeCm + ' cm';
+            }
+            function postAdd(includeThumb) {
+              return fetch('/cart/add.js', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  items: payload.lines.map(function (l, i) {
+                    // The bracelet render rides on the first line only (it's
+                    // ~10–25 KB; no point duplicating it on every line).
+                    var props = properties;
+                    if (includeThumb && i === 0 && payload.previewImage) {
+                      props = Object.assign({ '_thumb': payload.previewImage }, properties);
+                    }
+                    return { id: l.variantId, quantity: l.quantity, properties: props };
+                  })
+                })
+              });
+            }
+            return postAdd(true).then(function (r) {
+              if (!r.ok && payload.previewImage) {
+                // The thumbnail may have pushed the request over a size limit.
+                // A failed multi-item add adds nothing, so retrying without it
+                // can't double-add; the cart row falls back to a bead image.
+                return postAdd(false);
+              }
+              return r;
             }).then(function (r) {
               if (!r.ok) {
                 // Shopify's cart error body carries a shopper-readable

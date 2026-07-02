@@ -1,0 +1,42 @@
+{%- comment -%}
+  Custom-bracelet cart count — a modified copy of Dawn's
+  sections/cart-icon-bubble.liquid (pulled from live theme 202232136025 on
+  2026-07-02). Pushed over the theme's copy by `npm run deploy:shopify`.
+
+  What changed vs stock Dawn: lines added by the bracelet configurator share a
+  `_bracelet_id` line-item property; each designed bracelet counts as ONE item
+  in the header bubble (matching the grouped row in main-cart-items.liquid)
+  instead of one per bead.
+{%- endcomment -%}
+
+{%- liquid
+  assign display_count = cart.item_count
+  assign seen_bracelets = ','
+  for item in cart.items
+    assign bracelet_id = item.properties['_bracelet_id']
+    if bracelet_id != blank
+      assign display_count = display_count | minus: item.quantity
+      assign bracelet_token = ',' | append: bracelet_id | append: ','
+      unless seen_bracelets contains bracelet_token
+        assign seen_bracelets = seen_bracelets | append: bracelet_id | append: ','
+        assign display_count = display_count | plus: 1
+      endunless
+    endif
+  endfor
+-%}
+
+{% if cart == empty %}
+  <span class="svg-wrapper">{{ 'icon-cart-empty.svg' | inline_asset_content }}</span>
+{% else %}
+  <span class="svg-wrapper">{{ 'icon-cart.svg' | inline_asset_content }}</span>
+{% endif %}
+
+<span class="visually-hidden">{{ 'templates.cart.cart' | t }}</span>
+{%- if cart != empty -%}
+  <div class="cart-count-bubble">
+    {%- if display_count < 100 -%}
+      <span aria-hidden="true">{{ display_count }}</span>
+    {%- endif -%}
+    <span class="visually-hidden">{{ 'sections.header.cart_count' | t: count: display_count }}</span>
+  </div>
+{%- endif -%}

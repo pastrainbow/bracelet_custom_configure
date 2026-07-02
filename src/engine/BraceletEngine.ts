@@ -448,6 +448,29 @@ export class BraceletEngine {
     }
   }
 
+  /**
+   * Render the arranged bracelet alone on a small white square and return it as
+   * a compressed JPEG data URL — the cart-line thumbnail for the design. JPEG
+   * (not PNG) keeps it ~10–25 KB so it fits comfortably in a Shopify line-item
+   * property. Returns null when the bracelet is empty or export fails.
+   */
+  renderThumbnail(size = 300): string | null {
+    if (this.items.length === 0) return null;
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, size, size);
+      this.drawBraceletPortrait(ctx, size / 2, size / 2, size * 0.46);
+      return canvas.toDataURL('image/jpeg', 0.8);
+    } catch {
+      return null;
+    }
+  }
+
   // ── public mutations (called from the UI via the store) ─────────────────────
 
   /**

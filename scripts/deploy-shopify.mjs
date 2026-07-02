@@ -40,6 +40,13 @@ const PUSH_FILES = [
   [resolve(distDir, 'bracelet-configurator.umd.js'), 'assets/bracelet-configurator.umd.js'],
   [resolve(distDir, 'bracelet-configurator.css'), 'assets/bracelet-configurator.css'],
   [resolve(shopifyDir, 'bracelet-configurator.liquid'), 'sections/bracelet-configurator.liquid'],
+  // Modified copies of two Dawn sections (see the header comment in each file):
+  // they group a designed bracelet's bead lines into one "Custom Bracelet" cart
+  // row and count it as one item in the header bubble. Pushing them OVERWRITES
+  // the theme's stock sections — after a Dawn theme update, re-pull and re-apply
+  // the CUSTOM BRACELET blocks.
+  [resolve(shopifyDir, 'main-cart-items.liquid'), 'sections/main-cart-items.liquid'],
+  [resolve(shopifyDir, 'cart-icon-bubble.liquid'), 'sections/cart-icon-bubble.liquid'],
 ];
 
 // Bead/accessory sprite PNGs are hosted as theme assets; the Liquid section

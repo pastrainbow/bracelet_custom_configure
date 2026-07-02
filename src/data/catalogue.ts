@@ -165,6 +165,16 @@ function beadPricesOf(raw: RawCatalogueItem): Record<number, number> {
   return expandBasePrice(raw.price ?? 0, raw.sizes && raw.sizes.length ? raw.sizes : undefined);
 }
 
+/** Per-size Shopify variant ids for a raw bead (JSON keys arrive as strings). */
+function beadVariantIdsOf(raw: RawCatalogueItem): Record<number, number> | undefined {
+  const ids: Record<number, number> = {};
+  for (const [mm, id] of Object.entries(raw.variantIds ?? {})) {
+    const size = Number(mm);
+    if (Number.isFinite(size) && Number.isFinite(id)) ids[size] = id;
+  }
+  return Object.keys(ids).length ? ids : undefined;
+}
+
 /** Turn one injected item into a renderable def. The gradient/shape here is only
  *  a neutral fallback for the rare case an image fails to load — the real look
  *  comes from `imageUrl`. */
@@ -177,13 +187,20 @@ function toItemDef(raw: RawCatalogueItem): ItemDef {
     imageUrl: raw.imageUrl,
   };
   if (raw.superCategory === 'accessories') {
-    return { ...common, price: raw.price ?? 0, shape: 'coin', color: '#c9c9c9' } satisfies AccessoryDef;
+    return {
+      ...common,
+      price: raw.price ?? 0,
+      variantId: Number.isFinite(raw.variantId) ? raw.variantId : undefined,
+      shape: 'coin',
+      color: '#c9c9c9',
+    } satisfies AccessoryDef;
   }
   return {
     ...common,
     gradient: ['#dcdcdc', '#a9a9a9'],
     sizes: raw.sizes && raw.sizes.length ? raw.sizes : undefined,
     prices: beadPricesOf(raw),
+    variantIds: beadVariantIdsOf(raw),
   } satisfies BeadDef;
 }
 

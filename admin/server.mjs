@@ -49,7 +49,7 @@ const PRODUCTS_TOKEN = process.env.SHOPIFY_PRODUCTS_TOKEN;
 const CLIENT_ID = process.env.SHOPIFY_CLIENT_ID;
 const CLIENT_SECRET = process.env.SHOPIFY_CLIENT_SECRET;
 const API_VERSION = process.env.SHOPIFY_API_VERSION || '2026-01';
-const PORT = Number(process.env.ADMIN_PORT) || 5190;
+const PORT = Number(process.env.ADMIN_PORT) || Number(process.env.PORT) || 5190;
 const DRY_RUN = process.env.ADMIN_DRY_RUN === '1' || process.argv.includes('--dry-run');
 
 const themeConfigured = Boolean(STORE && THEME_TOKEN && THEME_ID);
